@@ -54,9 +54,12 @@ async def test_phase2_round_trip(ontology_service, tmp_path: Path):
         ),
         ScriptedToolCall(tool="emit_event", kwargs={"name": "forecast_revised", "payload": {"sku": "sku-toothpaste-6oz"}}),
     ]
+    # Only demand_planning is scripted. supply_planning is NOT hand-wired here:
+    # in stub mode the factory builds it as the default InternalStubHandler, the
+    # same as any not-yet-driven internal role. (Phase 3 removed the explicit
+    # supply_planning override that used to live here.)
     overrides = {
         "demand_planning": ScriptedAgentHandler("demand_planning", orch=None, script=dp_script),
-        "supply_planning": InternalStubHandler("supply_planning", orch=None),
     }
 
     factory = build_default_handler_factory(ontology_service, overrides=overrides, mode="stub")

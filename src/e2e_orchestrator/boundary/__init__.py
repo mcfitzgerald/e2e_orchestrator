@@ -10,6 +10,7 @@ boundary module supplies:
   - Stub responders for boundary roles that receive handoffs/queries (this
     role-handler shape lives in `application.agent_factory.BoundaryStubHandler`).
 """
+from .customer_development import emit_promo_plan_aligned
 from .demand_sensing import emit_demand_anomaly
 
-__all__ = ["emit_demand_anomaly"]
+__all__ = ["emit_demand_anomaly", "emit_promo_plan_aligned"]

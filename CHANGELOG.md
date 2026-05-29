@@ -7,6 +7,60 @@ date-stamped session entries, no tagged releases yet, everything under
 
 ## [Unreleased]
 
+### 2026-05-29 — Phase 3: multi-role happy path (Scenes 1-3)
+
+- **Three roles, zero template edits.** `supply_planning` and
+  `production_planning` are now real `LlmAgentHandler`s in `llm` mode — built by
+  the existing factory from their rendered ontology role views, with **no
+  changes to the agent template (`agent_factory.py`) or the seven tools
+  (`tools/agent_toolkit.py`)**. The Phase 3 stop condition ("Phase 3 requires
+  per-role code in the generic agent template") did not trip: the diff touches
+  only boundary simulation, runtime wiring, and tests. This is the load-bearing
+  proof that the generic-agent thesis generalizes past one role.
+- **Second boundary seeder.** `boundary/customer_development.py`
+  (`emit_promo_plan_aligned`) — symmetric to `demand_sensing`. Constructs an
+  aligned `TradePromotion` (BOGO on Product A at Walmart, 3x lift, 2-week window
+  ~6 weeks out, `commitment_status: aligned`) and dispatches the
+  `submit_promo_plan` ingress flow into `demand_planning`. No LLM inside the
+  boundary role.
+- **Scenario registry + single-command happy path.** `runtime/main.py`
+  generalized from a single hard-coded Phase 2 path to a `SCENARIOS` registry.
+  `e2e-orchestrator` now runs the **promo whiplash happy path by default**:
+  `submit_promo_plan → demand_planning → submit_supply_request → supply_planning
+  → request_production → production_planning`. The original Phase 2 round trip is
+  preserved behind `--scenario demand-anomaly`. Stub-mode scripts for the three
+  roles let the full chain run without an LLM key (`--mode stub`); the
+  orchestrator can't tell a script from an LLM, so the structural DoD holds for
+  the live run.
+- **Override removed.** The hand-wired `supply_planning` `InternalStubHandler`
+  override is gone from both `runtime/main.py` and `tests/test_phase2_dod.py`.
+  In stub mode the factory builds the same `InternalStubHandler` as a default
+  (no special-casing); in llm mode it builds a real agent. The Phase 2 DoD test
+  still passes unchanged in substance.
+- **Phase 3 DoD test.** `tests/test_phase3_dod.py` asserts the three-role chain
+  via scripted handlers: TradePromotion ingress at the `customer_development`
+  boundary, exactly three agents invoked in order, both handoffs routed by
+  deterministic ontology lookup (`submit_supply_request` → supply_planning,
+  `request_production` → production_planning), stable idempotency keys, an
+  axiom-evaluation event per handoff, and `read_ontology` lookups by every role
+  on the path (routing traceable to the ontology). Imports the canonical scripts
+  and seeder from `runtime.main` so the CLI stub path and the test can't drift.
+  21 tests pass.
+- **Verified live.** Three-agent run on Vertex (`gemini-2.5-flash`):
+  `TradePromotion` injected at `customer_development` → `demand_planning` →
+  `supply_planning` → `production_planning`. All three LLM agents acted; both
+  handoffs routed deterministically; **zero `quantum_rejected`** — every agent
+  built a schema-valid quantum on the first try. The agency is real, not
+  replayed: `supply_planning` made its own network call (provisional
+  `plant-A`/`line-1`, a day 30-36 window chosen to hit `required_by` 42, volume
+  4500) — all different from the stub script's values — and its reasoning
+  explicitly cited the `line_capacity_not_exceeded` axiom and its automatic
+  reroute. `production_planning` advanced `ProductionRequestLifecycle` on
+  `assign`. 19 events; local artifact at `runs/phase3-live.jsonl`. (Note: the
+  LLMs acted directly from their rendered role-view system prompts and largely
+  skipped the optional `read_ontology` calls the stub scripts make — routing is
+  still 100% deterministic in the orchestrator, so the DoD holds.)
+
 ### 2026-05-29 — Phase 2 verified live + pairing with ontology Phase 1.5
 
 - **Verified live.** First end-to-end live run with `gemini-2.5-flash` on

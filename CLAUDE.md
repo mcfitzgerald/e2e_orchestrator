@@ -91,6 +91,45 @@ Symmetric stop conditions on the orchestrator side:
   resolutions across runs with different LLM seeds, the agency has been
   structured away — revisit the playbook against the §2 world-vs-policy rule.
 
+## Watching the agency surface (live runs)
+
+The structural tests verify the orchestrator surface; they cannot tell you
+whether the LLM is still reasoning agentically. At each phase's live run,
+read the trace's `agent_reasoning` events against the heuristic established
+at Phase 3 live verification (2026-05-29):
+
+- **Healthy agency surface** — agents cite system mechanics in their
+  reasoning ("the orchestrator will auto-reroute on a blocking axiom",
+  "I'll fire X knowing it gets validated against the SupplyRequest
+  schema"). They reason about decisions rather than rediscovering their
+  identity each invocation.
+- **Identity-discovery regression** — reasoning reverts to "As X, what
+  should I do?" framing. Something broke the orientation preface or the
+  rendered role view. Investigate `e2e_ontology/ontology_service/`
+  upstream first.
+- **Menu-picking regression** — agent with multiple available actions
+  fires one without justification, or fires all flat. Playbook construct
+  (Phase 5) needs to scaffold the judgment. Do NOT patch in the
+  orchestrator — that would re-introduce per-role code. Send a
+  paste-ready briefing to the ontology session.
+- **Hallucinated-grounding regression** — agent confidently references
+  entities (plants, lines, suppliers, SKUs) that don't exist in the
+  loaded world state. Fix is reader tools (Phase 5 §6.2 Tool
+  meta-construct) + a wired world-state loader (Phase 4), NOT prompt
+  nudges. If a post-Phase-5 live run still shows this, reader-tool
+  wiring is broken or the Tool meta-construct isn't surfacing.
+
+The Phase 3 landmark to compare against: `supply_planning` inventing its
+own plant/line/window plan, citing the `line_capacity_not_exceeded` axiom
+as a constraint. Important nuance: that run hallucinated the plant/line
+names — agency was real, grounding was not. Trace at
+`runs/phase3-live.jsonl` in this checkout (local-only). The Phase 3
+signal is the **precursor** to grounded agency; Phase 4 (world-state
+loader + real axiom evaluator) and Phase 5 (reader tools) close the
+loop. Lose either signal — the operational stance OR the grounded
+reference — and the architecture has regressed in a way the structural
+tests will not catch.
+
 ## Common pitfalls
 
 - **Don't store quantum IDs inside the quantum.** The orchestrator stamps a
