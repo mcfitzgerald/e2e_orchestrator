@@ -24,4 +24,6 @@ class FlowRouter:
             flow = self._svc.ontology.flows.get(flow_name)
         if flow is None:
             raise FlowNotFoundError(flow_name)
-        return _to_flow_summary(flow)
+        # Phase 1.5 of the ontology service added quantum + returns schema
+        # rendering on FlowSummary; the adapter now needs the SchemaView.
+        return _to_flow_summary(flow, self._svc.ontology.schema_view)

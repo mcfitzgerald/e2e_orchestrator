@@ -132,7 +132,9 @@ class LlmAgentHandler:
     def __init__(self, role: str, orch: Orchestrator, *, model: str | None = None):
         self.role = role
         self._orch = orch
-        self._model = model or os.environ.get("E2E_AGENT_MODEL", "gemini-flash-latest")
+        # `gemini-flash-latest` is the AI Studio shorthand and 404s on Vertex
+        # regional endpoints; ADK's own documented default is `gemini-2.5-flash`.
+        self._model = model or os.environ.get("E2E_AGENT_MODEL", "gemini-2.5-flash")
         self._prompt = self._orch.service.render_role_view(role).as_agent_prompt()
 
     async def invoke(self, ctx: ToolContext, message: str) -> dict[str, Any]:
@@ -151,7 +153,8 @@ class LlmAgentHandler:
             tools=toolkit.as_list(),
         )
         session_service = InMemorySessionService()
-        app_name = f"e2e_orchestrator:{self.role}"
+        # ADK's App.name validator only allows [A-Za-z0-9_-]; no `:`.
+        app_name = f"e2e_orchestrator_{self.role}"
         user_id = "orchestrator"
         session_id = ctx.invocation_id
         await _maybe_await(

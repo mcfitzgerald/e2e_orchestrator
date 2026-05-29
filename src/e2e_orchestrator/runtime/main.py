@@ -20,6 +20,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .. import _bootstrap
+from .._env import load_dotenv_if_present
+
+# Load .env at import time so ADK env vars are visible before the agent factory
+# is built. Idempotent; no-op if no .env exists.
+load_dotenv_if_present()
 
 from ontology_service import OntologyService
 
