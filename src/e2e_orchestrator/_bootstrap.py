@@ -42,3 +42,4 @@ def ensure_ontology_on_path() -> Path:
 
 ONTOLOGY_REPO_PATH: Path = ensure_ontology_on_path()
 ONTOLOGY_YAML_PATH: Path = ONTOLOGY_REPO_PATH / "supply_chain_demo.yaml"
+WORLD_STATE_YAML_PATH: Path = ONTOLOGY_REPO_PATH / "world_state.yaml"

@@ -7,6 +7,100 @@ date-stamped session entries, no tagged releases yet, everything under
 
 ## [Unreleased]
 
+### 2026-05-30 — Phase 4: deterministic backbone (axioms + FSM + world state)
+
+- **World-state loader (`world_state/loader.py`).** Loads
+  `e2e_ontology/world_state.yaml`, validates every instance against its declared
+  class via the same SchemaView-driven `QuantumValidator` the orchestrator uses
+  for quanta ("the fixture is real data shaped by the real schema", §9). Exposes
+  **generic, parameterized** queries — `find(class, **slots)`, `get_sku`,
+  `get_supplier`, `get_production_line(plant, line)`, `query_line_load(line,
+  window)`, and an injectable `today()` clock. No per-instance/domain accessor
+  (the Phase 4 loader stop condition). The orchestrator instantiates one at boot
+  and exposes it to the axiom evaluator.
+- **Real axiom evaluator (`application/axiom_evaluator.py`).** Replaces the
+  Phase 2 stub. Dispatch is by what the axiom declares, uniformly: `tool_ref` →
+  registry callable `(quantum, world_state)`; else `expr` → **slot-level**
+  subset (`{quantum.<slot>}` resolved against the payload; comparisons /
+  boolean / arithmetic via a restricted AST walk); else `nl`-only → advisory
+  pass. The named stop condition is enforced in code: an `expr` containing a
+  **function call** (`today()`) or **entity traversal**
+  (`{quantum.assigned_line.rated_weekly_capacity}`) is reported *non-enforcing*
+  ("candidate for tool_ref"), never interpreted — the interpreter does not grow
+  function support. `evaluate_axiom` is shared by flow-axiom and FSM-guard
+  checks, so the deterministic floor is identical on both.
+- **Axiom tool registry (`application/axiom_tools.py`).** Deterministic compute
+  tools for world-state axioms: `evaluate_line_capacity_not_exceeded` and
+  `evaluate_respect_lead_time`. Domain knowledge lives here (the legitimate
+  home), not in the orchestrator — a failing blocking axiom returns a
+  `recovery_quantum` already shaped for the `on_failure_route_to` flow's class,
+  so the orchestrator only validates + routes it. **Grounding check** (Phase 4's
+  addition to the DoD spirit): a quantum referencing an entity absent from world
+  state returns `passed=False, evidence="unknown_entity"`. A hallucinated
+  `assigned_line` / `assigned_plant` is caught by code, not waved through.
+- **FSM tracker (`application/fsm_tracker.py`).** Per-quantum lifecycle state in
+  the durability backend's materialized views (§9). `advance_fsm` (Phase-2 stub
+  in the toolkit) becomes real: look up the declared `StateMachineBody`, find the
+  transition from the current state, evaluate the guard via the shared
+  evaluator, advance or follow `on_failure_route_to`. Generic over
+  `StateMachineBody` — guard axioms are resolved by scanning declared flow
+  axioms; no per-FSM logic (the tracker stop condition).
+- **Orchestrator auto-recovery.** A blocking axiom failure no longer just logs:
+  the original handoff is **not** executed (the floor is in code), and when the
+  failing axiom supplies both a recovery flow and a constructable recovery
+  quantum, the orchestrator **automatically dispatches** `on_failure_route_to` —
+  no LLM in the routing. A grounding failure (`unknown_entity`) yields no
+  recovery quantum, so the run halts at the gate and the gap is visible in the
+  trace rather than hidden.
+- **`capacity-conflict` scenario (Scene 4).** `--scenario capacity-conflict`:
+  the Walmart 3x promo, with supply_planning assigning the full uplift (3000
+  units) to NJ-L1 — which already carries 3500/5000 in the window. `3500 + 3000
+  = 6500 > 5000` → the blocking `line_capacity_not_exceeded` axiom fires and the
+  orchestrator routes `escalate_capacity_conflict` (production_planning →
+  supply_planning) carrying a `CapacityConflict` with the computed 1500-unit
+  shortfall. The promo happy path was **grounded** to real world-state entities
+  (TP-FLAG-6OZ on NJ-L1, sized to headroom) so it still passes the deterministic
+  evaluator.
+- **Validator: multivalued slots.** `QuantumValidator` now validates each
+  element of a multivalued slot against its range (CapacityConflict's
+  `competing_skus`, `at_risk_commitments`). Generic; no regression for the flat
+  Phase 2/3 quanta.
+- **Tests (48 pass, +27).** `test_world_state_loader.py` (validation + conflict
+  math + grounding), `test_axiom_evaluator.py` (tool_ref / expr / nl-only paths,
+  unknown-entity rejection, the "same code path handles both blocking axioms"
+  DoD, and the function-call/traversal stop condition), `test_fsm_tracker.py`
+  (advance / block-and-route / reject), `test_phase4_dod.py` (Scene 4
+  end-to-end: blocking axiom fires, recovery flow taken automatically,
+  production_planning never invoked, deterministic across runs). Phase 2 + 3
+  DoD tests unchanged and green.
+- **Verified live (Vertex, `gemini-2.5-flash`), both scenarios.** The
+  deterministic floor caught the LLM where Phase 3 could not: supply_planning
+  hallucinated a line (`Line_A`/`Plant_North`; and `LINE-1`/`PLANT-A` on the
+  promo run) and the grounding check returned `unknown_entity` → the blocking
+  axiom fired → `request_production` was **blocked, not executed**. The FSM
+  tracker advanced real lifecycles live (RequestLifecycle draft→submitted→
+  approved, PurchaseOrderLifecycle draft→transmitted). **Agency surface healthy**
+  (CLAUDE.md heuristic): agents cite system mechanics in their reasoning
+  ("updated the PurchaseOrder's status from draft to transmitted using
+  advance_fsm", supply_planning reasoning about the "topology hinge" and its
+  fulfillment options) — operational reasoning, not identity-discovery or
+  menu-picking. **Grounding still absent** (hallucinated line names persist) —
+  exactly the Phase 3 precursor/grounding split, except Phase 4 now *enforces*
+  the gap instead of silently passing it. This is the Phase 5 reader-tool
+  pull-forward signal: the agent reasons agentically but cannot ground its
+  references until the Tool meta-construct + reader tools land. Local artifacts:
+  `runs/phase4-conflict-live.jsonl`, `runs/phase4-promo-live.jsonl`.
+- **Upstream signal (for the ontology session).** `respect_lead_time` still
+  declares only `expr` (`{quantum.required_by} >= today() + {quantum.supplier.
+  lead_time_days}`), which uses both a function call and an entity traversal —
+  outside the slot subset, so it currently evaluates *non-enforcing* (its FSM
+  guard passed by default live). Per the Phase 4 stop condition ("the right move
+  is more tool_ref migrations upstream, not more interpreter features"), it
+  should gain `tool_ref: evaluate_respect_lead_time` (the callable is already
+  registered here). The evaluator's "same code path handles both blocking
+  axioms" is proven in `test_axiom_evaluator.py` via the tool path; once the
+  ontology declares the tool_ref it routes there at runtime too.
+
 ### 2026-05-29 — Phase 3: multi-role happy path (Scenes 1-3)
 
 - **Three roles, zero template edits.** `supply_planning` and

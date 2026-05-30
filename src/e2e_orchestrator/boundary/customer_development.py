@@ -22,18 +22,20 @@ from ..application.orchestrator import DispatchResult, Orchestrator
 async def emit_promo_plan_aligned(
     orch: Orchestrator,
     *,
-    promo_id: str = "promo-walmart-bogo-0001",
-    sku: str = "sku-toothpaste-6oz",
-    retailer: str = "Walmart",
+    promo_id: str = "PROMO-WMT-FLAG-2026Q2",
+    sku: str = "TP-FLAG-6OZ",
+    retailer: str = "WALMART",
     volume_uplift_factor: float = 3.0,
-    promo_start_day: int = 42,
-    promo_end_day: int = 56,
+    promo_start_day: int = 142,
+    promo_end_day: int = 156,
     commitment_status: str = "aligned",
 ) -> DispatchResult:
     """Build a `TradePromotion` quantum and dispatch the `submit_promo_plan`
-    ingress flow. Defaults encode the demo narrative's Scene 1: a BOGO on
-    Product A at Walmart, 3x baseline lift for the 2-week promo window starting
-    in ~6 weeks, aligned through S&OP. Returns the dispatch result so the caller
+    ingress flow. Defaults are the demo narrative's Scene 1 promo, grounded in
+    `world_state.yaml` (`PROMO-WMT-FLAG-2026Q2`): a 3x lift on `TP-FLAG-6OZ` at
+    Walmart for the 2-week window starting day 142, aligned through S&OP.
+    Grounding the defaults means the deterministic Phase 4 evaluator resolves
+    the SKU against real world state. Returns the dispatch result so the caller
     can inspect the event log size after the run."""
     payload: dict[str, Any] = {
         "promo_id": promo_id,

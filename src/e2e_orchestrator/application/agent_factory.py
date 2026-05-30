@@ -100,24 +100,45 @@ class ScriptedToolCall:
 
 
 class ScriptedAgentHandler:
-    """Test handler: replays a fixed sequence of tool calls. The orchestrator
-    cannot tell the difference between this and a real LlmAgent — same surface."""
+    """Test handler: replays a pre-declared sequence of tool calls. The
+    orchestrator cannot tell the difference between this and a real LlmAgent —
+    same surface.
 
-    def __init__(self, role: str, orch: Orchestrator, script: list[ScriptedToolCall]):
+    `script` is either a flat list (replayed for every invocation, regardless of
+    which flow triggered it) or a dict mapping incoming-flow name → list (so a
+    role that receives more than one flow — e.g. `supply_planning` handling both
+    `submit_supply_request` and a `escalate_capacity_conflict` recovery — acts
+    appropriately for each). A `"*"` key in the dict is the default for any flow
+    not otherwise listed. This is test scaffolding only; the generic agent
+    template (`LlmAgentHandler`) and the seven tools are untouched."""
+
+    def __init__(
+        self,
+        role: str,
+        orch: Orchestrator,
+        script: list[ScriptedToolCall] | dict[str, list[ScriptedToolCall]],
+    ):
         self.role = role
         self._orch = orch
-        self._script = list(script)
+        self._script = script
+
+    def _script_for(self, incoming_flow: str | None) -> list[ScriptedToolCall]:
+        if isinstance(self._script, dict):
+            if incoming_flow is not None and incoming_flow in self._script:
+                return self._script[incoming_flow]
+            return self._script.get("*", [])
+        return self._script
 
     async def invoke(self, ctx: ToolContext, message: str) -> dict[str, Any]:
         tk = make_toolkit(self._orch, ctx)
         results: list[dict] = []
-        for step in self._script:
+        for step in self._script_for(ctx.incoming_flow):
             tool_fn = getattr(tk, step.tool)
             out = tool_fn(**step.kwargs)
             if hasattr(out, "__await__"):
                 out = await out
             results.append({"tool": step.tool, "result": out})
-        return {"kind": "scripted", "role": self.role, "calls": results}
+        return {"kind": "scripted", "role": self.role, "calls": results, "incoming_flow": ctx.incoming_flow}
 
 
 # ---------------------------------------------------------------------------

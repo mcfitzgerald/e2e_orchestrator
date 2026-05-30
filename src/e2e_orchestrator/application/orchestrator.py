@@ -23,6 +23,7 @@ from ontology_service import FlowSummary, OntologyService
 from ..durability.interface import DurabilityBackend, EventKind
 from .axiom_evaluator import AxiomEvaluator
 from .flow_router import FlowNotFoundError, FlowRouter
+from .fsm_tracker import FsmResult, FsmTracker
 from .quantum_validator import QuantumValidator, ValidationResult
 
 
@@ -119,6 +120,7 @@ class Orchestrator:
         handler_factory: HandlerFactory,
         *,
         clock: Callable[[], int] | None = None,
+        world_state: Any | None = None,
     ):
         self._svc = service
         self._backend = backend
@@ -127,7 +129,12 @@ class Orchestrator:
         self._router = FlowRouter(service)
         sv = self._schemaview()
         self._validator = QuantumValidator(sv)
-        self._axioms = AxiomEvaluator(service)
+        # World state loaded once at boot (§9). The axiom evaluator reads it for
+        # tool-backed axioms; if the fixture is absent, evaluation degrades to
+        # non-enforcing (logged) rather than crashing.
+        self._world = world_state if world_state is not None else _load_default_world_state(sv)
+        self._axioms = AxiomEvaluator(service, self._world)
+        self._fsm = FsmTracker(service, self._axioms, backend)
         self._handlers: dict[str, RoleHandler] = {}
         self._pending: list[asyncio.Task] = []
 
@@ -144,6 +151,10 @@ class Orchestrator:
     @property
     def router(self) -> FlowRouter:
         return self._router
+
+    @property
+    def world_state(self) -> Any | None:
+        return self._world
 
     def _schemaview(self) -> SchemaView:
         # The Ontology Service hides SchemaView but the orchestrator legitimately
@@ -305,9 +316,14 @@ class Orchestrator:
             idempotency_key=f"axioms:{idem}",
         )
 
-        if not axiom_eval.ok and axiom_eval.recovery_flow:
-            # Phase 4 path: blocking axiom + recovery route. Logged but not
-            # exercised by Phase 2 flows. Kept here so the surface is real.
+        if not axiom_eval.ok:
+            # Phase 4 hard gate: a blocking axiom failed. The original handoff
+            # is NOT executed — the floor is in code, not the LLM. Record the
+            # block, then automatically follow `on_failure_route_to` when there
+            # is both a recovery flow and a recovery quantum to carry. A
+            # grounding failure (unknown_entity) yields no recovery quantum, so
+            # the run halts at the gate and the gap is visible in the trace.
+            failed = [o for o in axiom_eval.results if not o.passed]
             self._backend.append(
                 EventKind.HANDOFF_BLOCKED,
                 {
@@ -315,17 +331,37 @@ class Orchestrator:
                     "quantum_class": flow.quantum,
                     "quantum_id": qid,
                     "rerouted_to": axiom_eval.recovery_flow,
+                    "failed_axioms": [_outcome_dict(o) for o in failed],
                     "by_role": ctx.role,
                     "invocation_id": ctx.invocation_id,
                 },
                 idempotency_key=f"blocked:{idem}",
             )
+            if axiom_eval.recovery_flow and axiom_eval.recovery_quantum is not None:
+                self._dispatch_recovery(
+                    recovery_flow=axiom_eval.recovery_flow,
+                    recovery_quantum=axiom_eval.recovery_quantum,
+                    origin_idem=idem,
+                    source_invocation=ctx.invocation_id,
+                    blocked_flow=flow_name,
+                )
+                return HandoffResult(
+                    status="rerouted",
+                    flow=flow_name,
+                    route=axiom_eval.recovery_flow,
+                    quantum_id=qid,
+                    reason="blocking axiom failed; orchestrator followed on_failure_route_to",
+                    axiom_outcomes=tuple(_outcome_dict(o) for o in axiom_eval.results),
+                )
             return HandoffResult(
-                status="rerouted",
+                status="blocked",
                 flow=flow_name,
-                route=axiom_eval.recovery_flow,
+                route=axiom_eval.recovery_flow or "",
                 quantum_id=qid,
-                reason="blocking axiom failed; followed on_failure_route_to",
+                reason=(
+                    "blocking axiom failed; no recovery dispatched "
+                    "(no on_failure_route_to or unconstructable recovery quantum, e.g. unknown_entity)"
+                ),
                 axiom_outcomes=tuple(_outcome_dict(o) for o in axiom_eval.results),
             )
 
@@ -453,6 +489,103 @@ class Orchestrator:
         )
         self._backend.notify_signal(signal_name, response)
 
+    # ---- FSM advance (tool-facing) ----------------------------------------
+
+    def advance_fsm(
+        self,
+        *,
+        quantum_id: str,
+        fsm: str,
+        trigger: str,
+        quantum: dict[str, Any],
+        ctx: ToolContext,
+    ) -> FsmResult:
+        """Request a lifecycle transition. The guard axiom is evaluated by the
+        same deterministic evaluator as flow axioms (§8.3); on a blocking guard
+        failure with a constructable recovery quantum, the orchestrator follows
+        `on_failure_route_to` — the same auto-recovery as the handoff path."""
+        ctx.sequence += 1
+        idem = f"fsm:{ctx.role}:{quantum_id}:{ctx.sequence}:{trigger}"
+        result = self._fsm.advance(
+            quantum_id=quantum_id,
+            fsm=fsm,
+            trigger=trigger,
+            quantum=quantum,
+            by_role=ctx.role,
+            invocation_id=ctx.invocation_id,
+            idempotency_key=idem,
+        )
+        if result.status == "blocked" and result.recovery_flow and result.recovery_quantum is not None:
+            self._dispatch_recovery(
+                recovery_flow=result.recovery_flow,
+                recovery_quantum=result.recovery_quantum,
+                origin_idem=idem,
+                source_invocation=ctx.invocation_id,
+                blocked_flow=f"{fsm}:{trigger}",
+            )
+        return result
+
+    # ---- recovery dispatch (deterministic on_failure_route_to) -------------
+
+    def _dispatch_recovery(
+        self,
+        *,
+        recovery_flow: str,
+        recovery_quantum: dict[str, Any],
+        origin_idem: str,
+        source_invocation: str,
+        blocked_flow: str,
+    ) -> None:
+        """Fire the recovery flow named by a failed blocking axiom's
+        `on_failure_route_to`. The recovery quantum is built by the (domain-
+        aware) axiom tool; the orchestrator only validates it against the
+        recovery flow's class and routes — no axiom-specific code here."""
+        rflow = self._router.resolve(recovery_flow)
+        rqid = _new_quantum_id()
+        ridem = f"recovery:{origin_idem}:{recovery_flow}:{rqid}"
+
+        validation = self._validator.validate(rflow.quantum, recovery_quantum)
+        if not validation.ok:
+            self._backend.append(
+                EventKind.QUANTUM_REJECTED,
+                {
+                    "where": "recovery",
+                    "flow": recovery_flow,
+                    "quantum_class": rflow.quantum,
+                    "errors": [_err(e) for e in validation.errors],
+                    "payload": recovery_quantum,
+                },
+                idempotency_key=f"reject:{ridem}",
+            )
+            return
+
+        appended = self._backend.append(
+            EventKind.HANDOFF_EXECUTED,
+            {
+                "flow": recovery_flow,
+                "source_role": rflow.source_role,
+                "target_role": rflow.target_role,
+                "quantum_class": rflow.quantum,
+                "quantum_id": rqid,
+                "trigger_event": rflow.trigger_event,
+                "payload": recovery_quantum,
+                "by_invocation": source_invocation,
+                "recovery_for": blocked_flow,
+            },
+            idempotency_key=ridem,
+        )
+        if appended.fresh:
+            task = asyncio.create_task(
+                self._dispatch_into_role(
+                    target_role=rflow.target_role,
+                    incoming_flow=recovery_flow,
+                    quantum_id=rqid,
+                    quantum_class=rflow.quantum,
+                    payload=recovery_quantum,
+                )
+            )
+            self._pending.append(task)
+
     # ---- internal dispatch helper ----------------------------------------
 
     async def _dispatch_into_role(
@@ -543,6 +676,20 @@ class QuantumValidationFailed(RuntimeError):
         self.flow = flow
         self.quantum_class = quantum_class
         self.validation = validation
+
+
+def _load_default_world_state(schemaview: SchemaView):
+    """Load the demo world fixture from the sibling ontology repo. Lazy imports
+    keep the world_state package off the orchestrator's module-load path (it
+    imports back into the application layer). Returns None if the fixture is
+    absent so tests/embeddings without a fixture still construct cleanly."""
+    from .. import _bootstrap
+    from ..world_state import WorldState
+
+    path = getattr(_bootstrap, "WORLD_STATE_YAML_PATH", None)
+    if path is None or not path.is_file():
+        return None
+    return WorldState.load(path, schemaview)
 
 
 def _new_quantum_id() -> str:

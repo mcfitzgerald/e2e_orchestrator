@@ -218,23 +218,26 @@ def make_toolkit(orch: Orchestrator, ctx: ToolContext) -> ToolKit:
         Returns:
             {"status": "transitioned"|"blocked"|"rejected", "from": str, "to": str, "reason": str}
         """
-        ctx.sequence += 1
-        # Phase 2: structural acknowledgment only — the real FSM tracker lands
-        # in Phase 4 alongside guard evaluation. We log the request so the
-        # surface is real in traces.
-        backend.append(
-            EventKind.FSM_TRANSITIONED,
-            {
-                "fsm": fsm,
-                "trigger": trigger,
-                "quantum_id": quantum_id,
-                "by_role": ctx.role,
-                "invocation_id": ctx.invocation_id,
-                "phase": "phase_2_stub",
-            },
-            idempotency_key=f"fsm:{ctx.role}:{quantum_id}:{ctx.sequence}:{trigger}",
+        # The quantum currently in this agent's hands is what the guard is
+        # evaluated against. The orchestrator writes the FSM event(s), evaluates
+        # the guard via the shared deterministic evaluator, and auto-follows the
+        # recovery route on a blocking guard failure.
+        result_obj = orch.advance_fsm(
+            quantum_id=quantum_id,
+            fsm=fsm,
+            trigger=trigger,
+            quantum=ctx.incoming_payload or {},
+            ctx=ctx,
         )
-        result = {"status": "transitioned", "fsm": fsm, "trigger": trigger, "note": "phase-2 stub; guard evaluation lands in phase 4"}
+        result = {
+            "status": result_obj.status,
+            "fsm": result_obj.fsm,
+            "trigger": result_obj.trigger,
+            "from": result_obj.from_state,
+            "to": result_obj.to_state,
+            "reason": result_obj.reason,
+            "rerouted_to": result_obj.recovery_flow,
+        }
         _log_tool_call("advance_fsm", {"quantum_id": quantum_id, "fsm": fsm, "trigger": trigger}, result)
         return result
 

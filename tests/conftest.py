@@ -18,3 +18,11 @@ def ontology_yaml_path():
 @pytest.fixture(scope="session")
 def ontology_service(ontology_yaml_path) -> OntologyService:
     return OntologyService.load(str(ontology_yaml_path))
+
+
+@pytest.fixture(scope="session")
+def world_state(ontology_service):
+    """The demo world fixture, validated against the loaded schema."""
+    from e2e_orchestrator.world_state import WorldState
+
+    return WorldState.load(_bootstrap.WORLD_STATE_YAML_PATH, ontology_service.ontology.schema_view)

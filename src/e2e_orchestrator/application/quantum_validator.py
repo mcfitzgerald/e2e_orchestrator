@@ -106,6 +106,23 @@ class QuantumValidator:
         range_ = slot.range
         if range_ is None:
             return None
+        # Multivalued slot: the value is a list; validate each element against
+        # the range. (CapacityConflict.competing_skus, at_risk_commitments, etc.)
+        if bool(getattr(slot, "multivalued", False)):
+            if not isinstance(value, list):
+                return ValidationError(
+                    slot=name,
+                    code="type_mismatch",
+                    detail=f"slot {name} is multivalued but value type={type(value).__name__} (expected list)",
+                )
+            for elem in value:
+                err = self._check_scalar(name, range_, elem)
+                if err is not None:
+                    return err
+            return None
+        return self._check_scalar(name, range_, value)
+
+    def _check_scalar(self, name: str, range_: str, value: Any) -> ValidationError | None:
         # LinkML primitive type.
         if range_ in _PRIMITIVE_TYPES:
             allowed = _PRIMITIVE_TYPES[range_]

@@ -61,20 +61,25 @@ from ..durability import JsonlBackend
 # quantum schemas (post ontology Phase 1.5).
 # ---------------------------------------------------------------------------
 
-# Promo whiplash happy path (Phase 3, Scenes 1-3).
+# Promo whiplash happy path (Phase 3, Scenes 1-3). Grounded in world_state:
+# TP-FLAG-6OZ produced on NJ-L1 in the conflict window, but sized to the line's
+# remaining headroom (NJ-L1 baseline week 140 = 3500/5000) so the deterministic
+# Phase 4 capacity axiom PASSES. The full 3x promo uplift — which overflows the
+# line — is exactly what `--scenario capacity-conflict` exercises; here the
+# happy slice keeps the request within capacity.
 _PROMO_DEMAND_PLANNING = [
     ScriptedToolCall(tool="read_ontology", kwargs={"query": "my_view"}),
-    ScriptedToolCall(tool="emit_event", kwargs={"name": "forecast_revised", "payload": {"sku": "sku-toothpaste-6oz"}}),
+    ScriptedToolCall(tool="emit_event", kwargs={"name": "forecast_revised", "payload": {"sku": "TP-FLAG-6OZ"}}),
     ScriptedToolCall(
         tool="handoff",
         kwargs={
             "flow": "submit_supply_request",
             "quantum": {
                 "request_id": "sr-from-promo-0001",
-                "sku": "sku-toothpaste-6oz",
-                "volume": 13500,
-                "required_by": 42,
-                "source_signal_ref": "promo-walmart-bogo-0001",
+                "sku": "TP-FLAG-6OZ",
+                "volume": 1200,
+                "required_by": 146,
+                "source_signal_ref": "PROMO-WMT-FLAG-2026Q2",
             },
         },
     ),
@@ -82,19 +87,19 @@ _PROMO_DEMAND_PLANNING = [
 
 _PROMO_SUPPLY_PLANNING = [
     ScriptedToolCall(tool="read_ontology", kwargs={"query": "my_view"}),
-    ScriptedToolCall(tool="emit_event", kwargs={"name": "production_assigned", "payload": {"sku": "sku-toothpaste-6oz", "plant": "PLANT-OH1"}}),
+    ScriptedToolCall(tool="emit_event", kwargs={"name": "production_assigned", "payload": {"sku": "TP-FLAG-6OZ", "plant": "PLANT-NJ"}}),
     ScriptedToolCall(
         tool="handoff",
         kwargs={
             "flow": "request_production",
             "quantum": {
                 "request_id": "pr-from-promo-0001",
-                "sku": "sku-toothpaste-6oz",
-                "volume": 13500,
-                "window_start_day": 42,
-                "window_end_day": 56,
-                "assigned_plant": "PLANT-OH1",
-                "assigned_line": "line-oh1-a",
+                "sku": "TP-FLAG-6OZ",
+                "volume": 1200,
+                "window_start_day": 140,
+                "window_end_day": 146,
+                "assigned_plant": "PLANT-NJ",
+                "assigned_line": "NJ-L1",
                 "status": "requested",
             },
         },
@@ -102,14 +107,70 @@ _PROMO_SUPPLY_PLANNING = [
 ]
 
 # Happy-path terminal: production_planning has no outgoing handoff on the happy
-# path (its only outgoing flow, escalate_capacity_conflict, is the Phase 4
-# conflict path). It grounds itself in its role view and inspects the capacity
-# axiom it will be guarded by — both visible as ontology lookups in the trace.
-# The FSM advance it would otherwise drive lands with the FSM tracker in Phase 4.
+# path (its only outgoing flow, escalate_capacity_conflict, is the conflict
+# path). It grounds itself in its role view and inspects the capacity axiom it
+# is guarded by — both visible as ontology lookups in the trace.
 _PROMO_PRODUCTION_PLANNING = [
     ScriptedToolCall(tool="read_ontology", kwargs={"query": "my_view"}),
     ScriptedToolCall(tool="read_ontology", kwargs={"query": "axioms_on_flow:request_production"}),
 ]
+
+# Phase 4 — capacity conflict (Scene 4). Same Walmart 3x promo ingress; this
+# time supply_planning sizes the ProductionRequest to the full uplift (3000
+# incremental units on NJ-L1 for week 140). NJ-L1 already carries 3500/5000 in
+# that window, so scheduled 3500 + requested 3000 = 6500 > 5000 — the blocking
+# line_capacity_not_exceeded axiom fires and the orchestrator follows
+# on_failure_route_to: escalate_capacity_conflict back to supply_planning. No
+# LLM is in the routing. supply_planning's recovery handler just acknowledges
+# (cross-domain resolution is Scene 5 / Phase 5).
+_CONFLICT_DEMAND_PLANNING = [
+    ScriptedToolCall(tool="read_ontology", kwargs={"query": "my_view"}),
+    ScriptedToolCall(tool="emit_event", kwargs={"name": "forecast_revised", "payload": {"sku": "TP-FLAG-6OZ"}}),
+    ScriptedToolCall(
+        tool="handoff",
+        kwargs={
+            "flow": "submit_supply_request",
+            "quantum": {
+                "request_id": "sr-from-promo-conflict",
+                "sku": "TP-FLAG-6OZ",
+                "volume": 3000,
+                "required_by": 146,
+                "source_signal_ref": "PROMO-WMT-FLAG-2026Q2",
+            },
+        },
+    ),
+]
+
+_CONFLICT_SUPPLY_PLANNING = {
+    # Scene 4 ingress: assign the full uplift to NJ-L1 → overflows capacity.
+    "submit_supply_request": [
+        ScriptedToolCall(tool="read_ontology", kwargs={"query": "my_view"}),
+        ScriptedToolCall(tool="emit_event", kwargs={"name": "production_assigned", "payload": {"sku": "TP-FLAG-6OZ", "plant": "PLANT-NJ"}}),
+        ScriptedToolCall(
+            tool="handoff",
+            kwargs={
+                "flow": "request_production",
+                "quantum": {
+                    "request_id": "pr-from-promo-conflict",
+                    "sku": "TP-FLAG-6OZ",
+                    "volume": 3000,
+                    "window_start_day": 140,
+                    "window_end_day": 146,
+                    "assigned_plant": "PLANT-NJ",
+                    "assigned_line": "NJ-L1",
+                    "status": "requested",
+                },
+            },
+        ),
+    ],
+    # Recovery re-entry: the orchestrator routed the CapacityConflict back here.
+    # Phase 4 just acknowledges + inspects the conflict; Scene 5 (Phase 5) adds
+    # the cross-domain context assembly that resolves it.
+    "escalate_capacity_conflict": [
+        ScriptedToolCall(tool="read_ontology", kwargs={"query": "my_view"}),
+        ScriptedToolCall(tool="read_ontology", kwargs={"query": "flow:escalate_capacity_conflict"}),
+    ],
+}
 
 # Original Phase 2 demand-anomaly round trip.
 _ANOMALY_DEMAND_PLANNING = [
@@ -145,6 +206,14 @@ SCENARIOS: dict[str, dict] = {
         "scripts": {
             "demand_planning": _PROMO_DEMAND_PLANNING,
             "supply_planning": _PROMO_SUPPLY_PLANNING,
+            "production_planning": _PROMO_PRODUCTION_PLANNING,
+        },
+    },
+    "capacity-conflict": {
+        "seeder": emit_promo_plan_aligned,
+        "scripts": {
+            "demand_planning": _CONFLICT_DEMAND_PLANNING,
+            "supply_planning": _CONFLICT_SUPPLY_PLANNING,
             "production_planning": _PROMO_PRODUCTION_PLANNING,
         },
     },
