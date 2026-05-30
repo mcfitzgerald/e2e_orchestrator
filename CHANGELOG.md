@@ -7,6 +7,55 @@ date-stamped session entries, no tagged releases yet, everything under
 
 ## [Unreleased]
 
+### 2026-05-30 — Model migration to `gemini-3-flash-preview` + Phase 1.7b pairing + dev-manager seed
+
+- **Model migration.** Default agent model moved from `gemini-2.5-flash` to
+  `gemini-3-flash-preview` (Vertex preview). Three reasons: (1) 2.5-flash is on
+  a retirement path, no earlier than 2026-10-16, so migration is required
+  before Phase 8 demo polish either way; (2) ~3× faster, +15% accuracy
+  reportedly, with the accuracy bump directly relevant to Phase 5's Scene 5
+  trade-off reasoning; (3) cost premium ($0.50/$3.00 vs $0.30/$2.50 per 1M
+  input/output tokens) is negligible at our usage volume (single-digit dollars
+  across the whole project at projected demo iteration counts). The preview
+  works on `us-east4` without needing the `global` endpoint.
+- **Removed the hard-coded model fallback** in `LlmAgentHandler.__init__`. The
+  model identifier is now config, not code — when `E2E_AGENT_MODEL` isn't set
+  and no explicit `model=` is passed, the constructor raises a clear error
+  pointing at `.env.example`. Rationale: the right model depends on what's
+  supported on the user's Vertex project + region at any given time
+  (preview/GA, regional/global), and a hard-coded default that quietly works
+  on one machine while 404-ing on another is a footgun we already hit twice.
+  Explicit > implicit. `.env.example` documents the current recommendation
+  plus alternatives (2.5-flash for the stable path, 3-pro-preview for heavier
+  reasoning, 3.5-flash for newest/heaviest).
+- **Live re-verification.** `--scenario demand-anomaly` on
+  `gemini-3-flash-preview`: clean end-to-end. The four-pattern agency-surface
+  heuristic still holds (operational stance reasoning, no identity-discovery
+  framing), confirming the orientation preface isn't model-specific. Same run
+  surfaced a fresh hallucinated-grounding case — `assigned_line='line-A'
+  assigned_plant='plant-001'` — which the `tool_ref` evaluator caught as
+  `unknown_entity` and auto-rerouted via `escalate_capacity_conflict`. Same
+  pattern as Phase 4's earlier traces, different invented names — confirms
+  the floor catches arbitrary hallucinations, not just the specific ones
+  Phase 4 tested against. Trace at `runs/phase4-respect-lt-live.jsonl`.
+- **Phase 1.7b paired (ontology side).** `respect_lead_time` on
+  `submit_procurement_request` now declares `tool_ref: evaluate_respect_lead_time`
+  (e2e_ontology commit on 2026-05-30). The orchestrator-side callable was
+  already registered in Phase 4's `application/axiom_tools.py`. Unit-level
+  acceptance verified: the ontology-declared axiom now routes via `tool_ref`
+  and blocks an infeasible procurement payload (`required_by 120 < today(100)
+  + lead_time 28 = 128 for SUP-MENTHOL-002`) → `replan_on_infeasible_request`.
+  Live trace of this path is owed when a scenario naturally traverses
+  procurement (probably Phase 5 or later).
+- **Dev-manager session seed** (`briefings/dev-manager-session-seed.md`). The
+  conversation that ran the project through Phases 2/3/4 was doing double
+  duty as a coding session and as a project-tracker session. This brief
+  cleanly extracts the tracker role into its own seed: project intent, design
+  rules, two-repo coordination patterns, current state, four-pattern agency
+  heuristic, reading order. Paste-ready as the seed prompt for a new
+  development-manager session whose job is briefings and decision tracking,
+  not code edits.
+
 ### 2026-05-30 — Phase 4: deterministic backbone (axioms + FSM + world state)
 
 - **World-state loader (`world_state/loader.py`).** Loads

@@ -153,9 +153,22 @@ class LlmAgentHandler:
     def __init__(self, role: str, orch: Orchestrator, *, model: str | None = None):
         self.role = role
         self._orch = orch
-        # `gemini-flash-latest` is the AI Studio shorthand and 404s on Vertex
-        # regional endpoints; ADK's own documented default is `gemini-2.5-flash`.
-        self._model = model or os.environ.get("E2E_AGENT_MODEL", "gemini-2.5-flash")
+        # Model identifier is config, not code — no hard-coded fallback. The
+        # right value depends on what's currently supported on the user's
+        # Vertex project + region (preview vs GA, regional vs global endpoint).
+        # `.env.example` documents the current recommendation; explicit
+        # `model=` arg still wins for ad-hoc overrides.
+        resolved = model or os.environ.get("E2E_AGENT_MODEL")
+        if not resolved:
+            raise RuntimeError(
+                "No Gemini model configured for LlmAgentHandler. Set "
+                "E2E_AGENT_MODEL in your .env (see .env.example for the "
+                "current recommendation) or pass model=... explicitly. "
+                "Vertex AI requires fully-qualified versioned identifiers; "
+                "AI Studio shorthands like `gemini-flash-latest` 404 on "
+                "regional endpoints."
+            )
+        self._model = resolved
         self._prompt = self._orch.service.render_role_view(role).as_agent_prompt()
 
     async def invoke(self, ctx: ToolContext, message: str) -> dict[str, Any]:
