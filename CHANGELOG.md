@@ -7,6 +7,55 @@ date-stamped session entries, no tagged releases yet, everything under
 
 ## [Unreleased]
 
+### 2026-05-30 — Phase 1.8 paired upstream + early reader-tool reach signal
+
+- **Phase 1.8 landed in `e2e_ontology`** (largest upstream change since Phase
+  1): `scont:Playbook` + `scont:Tool` meta-constructs in `scont_meta.yaml`,
+  the `resolve_capacity_conflict` Playbook anchored to (supply_planning,
+  capacity_conflict_detected), and four reader-tool instances
+  (`query_plants_for_sku`, `query_line_load`, `query_commitments_in_window`,
+  `query_supplier_for_sku`). 249 tests pass upstream; 48 still pass here
+  (purely additive — no signature gotcha like Phase 1.5 surfaced).
+- **Two §2-sensitive disciplines worth recording** for future ontology
+  contributors: (a) `llm_prompt_hint` deliberately lives as a sibling
+  annotation, not a `PlaybookBody` field — matches the FlowBody precedent,
+  pinned by `test_llm_prompt_hint_in_body_rejected` so a future edit can't
+  silently let it back in-body; (b) `selects_one_of` is alphabetized in the
+  authored YAML AND in the renderer output, with the label "(pick one; order
+  arbitrary)" plus `test_resolution_paths_neutralized` as the guard so no
+  future edit can let list position read as priority. The architecture's
+  thesis depends on these.
+- **Live verification on `--scenario capacity-conflict`.** The new sections
+  of the rendered role view are reaching the agent: `supply_planning`'s
+  first action (`seq 8`) was `call_tool("query_plants_for_sku", {sku: ...})`
+  — the **first time in the project an agent has reached for a reader tool
+  from its declared `tools_available_to`**. `call_tool` is still a stub
+  (Phase 5 wires the dispatch), so the call returned `no_such_tool` and the
+  agent improvised — but the *reach* is the signal. Phase 1.8 surfaced the
+  tools in the prompt; the LLM used them correctly on the first attempt.
+  Trace at `runs/phase4-post-1.8-live.jsonl`.
+- **One new pattern observation worth tracking.** The same trace surfaced an
+  unexpected variant of the hallucinated-grounding pattern: the agent
+  invoked `surface_decision` referencing a playbook name
+  (`fulfill_supply_request`) that **doesn't exist in the ontology** — there
+  is only `resolve_capacity_conflict` anchored to a different event. This
+  is hallucinated-grounding applied to *playbook references* rather than
+  *entity references*. Same fix family (Phase 5 wiring will validate playbook
+  names against declared playbooks at `surface_decision` call time, same
+  way the axiom evaluator rejects unknown entity refs). Worth noting in the
+  four-pattern heuristic when Phase 5 wraps; for now, captured here so we
+  don't forget.
+- **Housekeeping.** Dev-manager seed updated to mark Phase 1.8 done. Phase 5
+  seed prompt (drafted earlier this session) is now unblocked — gate
+  condition (Playbook + Tool sections in supply_planning's rendered prompt)
+  is met.
+- **Briefings committed for posterity.** `briefings/phase-1.8-design-memo.md`
+  (the design exploration with the seven decisions we converged on) and
+  `briefings/ontology-phase-1.8-playbook-tool-meta.md` (the paste-ready
+  briefing that went upstream). Useful templates for future substantive
+  upstream changes (e.g. Phase 5.5 if surface_decision needs a typed
+  `DecisionSurface` quantum).
+
 ### 2026-05-30 — Model migration to `gemini-3-flash-preview` + Phase 1.7b pairing + dev-manager seed
 
 - **Model migration.** Default agent model moved from `gemini-2.5-flash` to

@@ -136,6 +136,7 @@ elaborated in the memory file.
 | 1.6 | System orientation preface in role views | `e2e_ontology` | Done — confirmed paying off at Phase 3 live verification |
 | 1.7 | `tool_ref` on `AxiomBody` for world-state axioms | `e2e_ontology` | Done — paired with Phase 4 |
 | 1.7b | `tool_ref` on `respect_lead_time` | `e2e_ontology` | Done — paired with Phase 4 (2026-05-30) |
+| 1.8 | Playbook + Tool meta-constructs + Scene 5 Playbook + 4 reader-tool instances | `e2e_ontology` | **Done 2026-05-30.** Largest upstream change since Phase 1. `resolve_capacity_conflict` Playbook authored §2-clean (alphabetized `selects_one_of` neutralization + `test_resolution_paths_neutralized` pinning it). `llm_prompt_hint` deliberately lives as sibling annotation (FlowBody precedent), not in-body — pinned by `test_llm_prompt_hint_in_body_rejected`. 249 tests pass upstream; 48 still pass here (purely additive). Phase 5 gate cleared. |
 | 2 | Orchestrator scaffold + first round trip | `e2e_orchestrator` | Done, verified live |
 | 3 | Multi-role happy path (Scenes 1-3) | `e2e_orchestrator` | Done, verified live; supply_planning agency-precursor moment observed (with hallucinated grounding caveat) |
 | 4 | Deterministic backbone — world state loader + real axiom evaluator + FSM tracker | `e2e_orchestrator` | Done (commit `221e3ae`), verified live; hallucinated entities caught by tool_ref grounding check |
@@ -144,8 +145,7 @@ elaborated in the memory file.
 
 | Phase | What | First step |
 |---|---|---|
-| 1.8 | Playbook + Tool meta-constructs + Scene 5 Playbook (upstream) | Ontology session — biggest upstream change to date |
-| 5 | Reader tools + Playbook execution + Scene 5 (load-bearing demo moment) | Gated on 1.8 |
+| 5 | Reader tools + Playbook execution + Scene 5 (load-bearing demo moment) | Seed prompt drafted; gate cleared by 1.8. Ready to spawn coding session. |
 | 6 | Resolution + full demo (Scene 6) | Gated on 5 |
 | 7 | MCP front door (independent — can start any time after Phase 1) | Parallel track |
 | 8 | Trace + decision surface UI | Gated on 5/6 |
