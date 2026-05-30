@@ -84,6 +84,11 @@ def make_toolkit(orch: Orchestrator, ctx: ToolContext) -> ToolKit:
                 - "axioms_on_flow:<flow>" — return the axioms attached to a flow.
                 - "events_observed_by:<role>" — return events the role observes.
                 - "events_emitted_by:<role>" — return events the role emits.
+                - "playbook:<name>" — return a playbook anchored to my role
+                                       (context_assembly, criteria, resolution
+                                       paths, always_fires).
+                - "playbooks_anchored_to:<role>" — list the playbooks anchored
+                                       to a role and what triggers each.
                 - "my_view"         — return my full role view (the same one
                                        rendered into my system prompt).
             target: Unused — kept for forward compatibility with structured queries.
@@ -111,6 +116,25 @@ def make_toolkit(orch: Orchestrator, ctx: ToolContext) -> ToolKit:
             elif query.startswith("events_emitted_by:"):
                 events = svc.events_emitted(query.split(":", 1)[1])
                 result = {"events": [{"name": e.name, "description": e.body.description} for e in events]}
+            elif query.startswith("playbook:"):
+                name = query.split(":", 1)[1]
+                view = svc.render_role_view(ctx.role)
+                match = next((pb for pb in view.playbooks_anchored_to if pb.name == name), None)
+                if match is None:
+                    result = {
+                        "error": f"no playbook {name!r} anchored to {ctx.role}",
+                        "anchored": [pb.name for pb in view.playbooks_anchored_to],
+                    }
+                else:
+                    result = match.model_dump(mode="json")
+            elif query.startswith("playbooks_anchored_to:"):
+                view = svc.render_role_view(query.split(":", 1)[1])
+                result = {
+                    "playbooks": [
+                        {"name": pb.name, "triggered_by": pb.triggered_by}
+                        for pb in view.playbooks_anchored_to
+                    ]
+                }
             else:
                 result = {"error": f"unknown query: {query}"}
         except Exception as exc:
@@ -244,39 +268,172 @@ def make_toolkit(orch: Orchestrator, ctx: ToolContext) -> ToolKit:
     # ---- 6. call_tool -----------------------------------------------------
 
     def call_tool(name: str, input: dict | None = None) -> dict:
-        """Invoke a declared specialist tool. Specialist tools (capacity solver,
-        OTIF calculator, schedule reader, etc.) are declared in the ontology
-        and wired by the orchestrator. None are declared in Phase 2 — the Tool
-        meta-construct lands in Phase 5.
+        """Invoke a declared reader tool to read world state. Reader tools
+        (`query_plants_for_sku`, `query_line_load`, `query_commitments_in_window`,
+        `query_supplier_for_sku`) return real entities from the loaded world —
+        prefer them over inventing plants, lines, or commitments.
+
+        The orchestrator resolves the tool's declared input/output classes,
+        validates your `input` against the input class, runs the bound
+        deterministic implementation, and validates its output before returning
+        it to you. A tool your role can't call (or that doesn't exist) returns a
+        clean `no_such_tool`; a query for an entity absent from world state
+        returns `unknown_entity` rather than a fabricated answer.
 
         Args:
-            name: Declared tool name.
-            input: Tool input dict.
+            name: Declared tool name (one of your `tools_available_to`).
+            input: Tool input dict matching the tool's declared input class.
 
         Returns:
-            {"status": "no_such_tool"} in Phase 2; tool output dict from Phase 5.
+            {"status": "ok", "output_class": str, "output": {...}, "evidence": str}
+            on success; {"status": "no_such_tool"|"invalid_input"|"unknown_entity"
+            |"invalid_output", ...} otherwise.
         """
-        result = {"status": "no_such_tool", "name": name, "phase": "phase_5_lands_tools"}
+        payload = input or {}
+        # Resolve the tool declaration the acting role is allowed to call. The
+        # role-view renderer already filters Tools by `available_to`, so a name
+        # absent from this set is either undeclared or not callable by us.
+        tools = {t.name: t for t in svc.tools_available_to(ctx.role)}
+        tool = tools.get(name)
+        if tool is None:
+            result: dict[str, Any] = {"status": "no_such_tool", "name": name, "available": sorted(tools)}
+            _log_tool_call("call_tool", {"name": name, "input": input}, result)
+            return result
+
+        input_class = tool.body.input_class
+        output_class = tool.body.output_class
+        impl = tool.body.implementation
+
+        iv = orch.validator.validate(input_class, payload)
+        if not iv.ok:
+            result = {
+                "status": "invalid_input",
+                "name": name,
+                "input_class": input_class,
+                "errors": [{"slot": e.slot, "code": e.code, "detail": e.detail} for e in iv.errors],
+            }
+            _log_tool_call("call_tool", {"name": name, "input": input}, result)
+            return result
+
+        fn = orch.reader_tools.get(impl)
+        if fn is None or orch.world_state is None:
+            result = {
+                "status": "no_such_tool",
+                "name": name,
+                "reason": f"implementation {impl!r} not bound or world state unavailable",
+            }
+            _log_tool_call("call_tool", {"name": name, "input": input}, result)
+            return result
+
+        tool_result = fn(payload, orch.world_state)
+        if tool_result.output is None:
+            # Grounding miss — surface honestly (mirrors the axiom unknown_entity
+            # floor). The agent gets the evidence, never a fabricated entity.
+            result = {"status": "unknown_entity", "name": name, "evidence": tool_result.evidence}
+            _log_tool_call("call_tool", {"name": name, "input": input}, result)
+            return result
+
+        ov = orch.validator.validate(output_class, tool_result.output)
+        if not ov.ok:
+            # The tool produced something off-contract — surface it rather than
+            # passing a malformed entity downstream (this is our bug, not the LLM's).
+            result = {
+                "status": "invalid_output",
+                "name": name,
+                "output_class": output_class,
+                "errors": [{"slot": e.slot, "code": e.code, "detail": e.detail} for e in ov.errors],
+                "evidence": tool_result.evidence,
+            }
+            _log_tool_call("call_tool", {"name": name, "input": input}, result)
+            return result
+
+        result = {
+            "status": "ok",
+            "tool": name,
+            "output_class": output_class,
+            "output": tool_result.output,
+            "evidence": tool_result.evidence,
+        }
         _log_tool_call("call_tool", {"name": name, "input": input}, result)
         return result
 
     # ---- 7. surface_decision ---------------------------------------------
 
     def surface_decision(playbook: str, context: dict | None = None, options: list[str] | None = None) -> dict:
-        """Surface a decision: present a structured decision surface to the
-        orchestrator. Per the role's declared `human_involvement` and the
-        orchestrator's policy, the decision may be resolved autonomously,
-        escalated to a human, or rejected (e.g. autonomous-only role).
+        """Surface a structured decision to the orchestrator after assembling the
+        context a Playbook called for. The orchestrator validates that the named
+        playbook is one actually anchored to your role (an unknown name is
+        rejected deterministically, the same way a bad entity reference is) and
+        records the decision surface in the trace.
+
+        It does NOT pick for you: the resolution choice is yours and stays yours.
+        After surfacing, fire exactly one of the playbook's resolution flows via
+        `handoff`, then apply the playbook's `always_fires` effects.
 
         Args:
-            playbook: Name of the playbook framing this decision (Phase 5).
+            playbook: Name of the playbook framing this decision (must be one
+                anchored to your role).
             context: Structured context bundle (responses gathered, exposure metrics).
-            options: List of resolution flow names the decider can pick from.
+            options: The resolution flow names you are choosing among (echoed back
+                un-reordered; the list carries no priority).
 
         Returns:
-            {"status": "deferred", "phase": "phase_5_lands_decision_surface"} in Phase 2.
+            {"status": "surfaced", "options": [...], "next": str} when the
+            playbook is valid; {"status": "unknown_playbook", "anchored_playbooks":
+            [...]} when it is not.
         """
         ctx.sequence += 1
+        anchored = {pb.name for pb in svc.playbooks_anchored_to(ctx.role)}
+        validated = playbook in anchored
+        if not validated:
+            # Deterministic floor (mirrors call_tool's no_such_tool / the axiom
+            # unknown_entity): reject a playbook that doesn't exist for this role.
+            # This rejects non-existent names only — it never ranks real ones.
+            backend.append(
+                EventKind.DECISION_SURFACED,
+                {
+                    "playbook": playbook,
+                    "role": ctx.role,
+                    "invocation_id": ctx.invocation_id,
+                    "context": context or {},
+                    "options": list(options or ()),
+                    "validated": False,
+                    "anchored_playbooks": sorted(anchored),
+                },
+                idempotency_key=f"decision:{ctx.role}:{ctx.invocation_id}:{ctx.sequence}",
+            )
+            result = {"status": "unknown_playbook", "playbook": playbook, "anchored_playbooks": sorted(anchored)}
+            _log_tool_call("surface_decision", {"playbook": playbook, "context": context, "options": options}, result)
+            return result
+
+        # Synchronization gate: a wait_all Playbook may not surface its decision
+        # until every `required` context-assembly query has a recorded response
+        # for this invocation. Deterministic, signal-based, in the family of
+        # quantum_rejected / unknown_entity — the missing flow is named and the
+        # gap is visible in the trace. Gates on evidence completeness, not on the
+        # resolution choice (§2-safe).
+        missing = orch.wait_all_missing(playbook=playbook, role=ctx.role, invocation_id=ctx.invocation_id)
+        if missing:
+            backend.append(
+                EventKind.WAIT_ALL_UNSATISFIED,
+                {
+                    "playbook": playbook,
+                    "role": ctx.role,
+                    "invocation_id": ctx.invocation_id,
+                    "missing": missing,
+                },
+                idempotency_key=f"waitall:{ctx.role}:{ctx.invocation_id}:{ctx.sequence}",
+            )
+            result = {
+                "status": "wait_all_unsatisfied",
+                "playbook": playbook,
+                "missing": missing,
+                "evidence": f"wait_all_unsatisfied: no response for {', '.join(missing)}",
+                "next": "fire the missing context-assembly query flow(s) via `query`, then re-call surface_decision",
+            }
+            _log_tool_call("surface_decision", {"playbook": playbook, "context": context, "options": options}, result)
+            return result
+
         backend.append(
             EventKind.DECISION_SURFACED,
             {
@@ -285,11 +442,18 @@ def make_toolkit(orch: Orchestrator, ctx: ToolContext) -> ToolKit:
                 "invocation_id": ctx.invocation_id,
                 "context": context or {},
                 "options": list(options or ()),
-                "phase": "phase_2_stub",
+                "validated": True,
+                "anchored_playbooks": sorted(anchored),
             },
             idempotency_key=f"decision:{ctx.role}:{ctx.invocation_id}:{ctx.sequence}",
         )
-        result = {"status": "deferred", "playbook": playbook, "phase": "phase_5_lands_decision_surface"}
+        result = {
+            "status": "surfaced",
+            "playbook": playbook,
+            "options": list(options or ()),
+            "next": "fire exactly one option via the `handoff` tool, then apply the "
+            "playbook's always_fires effects",
+        }
         _log_tool_call("surface_decision", {"playbook": playbook, "context": context, "options": options}, result)
         return result
 

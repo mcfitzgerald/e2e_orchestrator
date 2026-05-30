@@ -30,6 +30,7 @@ class EventKind:
     AGENT_REASONING = "agent_reasoning"
     DECISION_SURFACED = "decision_surfaced"
     QUANTUM_REJECTED = "quantum_rejected"
+    WAIT_ALL_UNSATISFIED = "wait_all_unsatisfied"
 
 
 @dataclass(frozen=True)

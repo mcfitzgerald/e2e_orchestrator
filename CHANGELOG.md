@@ -7,6 +7,112 @@ date-stamped session entries, no tagged releases yet, everything under
 
 ## [Unreleased]
 
+### 2026-05-30 — Phase 5 follow-up: `wait_all` enforced as a deterministic gate
+
+- **`wait_all` is now a consumed contract, not a comment.** The
+  `resolve_capacity_conflict` Playbook declares three `required: true`
+  context-assembly queries with `synchronization: wait_all`; nothing in the
+  backbone enforced it, and a Phase 5 live run fired only 2 of 3 then decided
+  anyway. New `Orchestrator.wait_all_missing(playbook, role, invocation_id)`
+  returns the required context-assembly flows lacking a recorded query response
+  for the active decision (correlated on `by_invocation` so a prior
+  escalate-round's responses don't count). `surface_decision` calls it after the
+  playbook-ref floor: a `wait_all` playbook may not surface until every required
+  query is answered. Missing → `WAIT_ALL_UNSATISFIED` event (new EventKind) +
+  `{"status": "wait_all_unsatisfied", "missing": [...]}`, in the family of
+  `quantum_rejected` / `unknown_entity` — the gap is *named and visible in the
+  trace*. The agent re-fires the missing `query(...)` and re-calls; same retry
+  shape as a rejected quantum.
+- **Why orchestrator, not ontology rendering** (owner-adjudicated): this is an
+  unenforced declared contract the deterministic backbone is meant to hold (like
+  the blocking-axiom floor), not an LLM-reliability gap. It gates on *evidence
+  completeness*, never on *which* resolution — reads only `synchronization` +
+  `context_assembly[].required`, never `selects_one_of` / `criteria_refs`. §2
+  holds: agency untouched, no per-role/flow names hard-coded, inert when there's
+  no matching `wait_all` playbook or no required flows.
+- **Live-verified.** Across three `--scenario capacity-resolution` runs, two
+  would have short-circuited (fired coman+otif, then tried to decide); the gate
+  rejected each naming `check_promo_flexibility`, and the agent recovered —
+  reasoning explicitly: *"my previous attempt to surface the decision failed …
+  `wait_all_unsatisfied` … I must execute all queries specified in the
+  context_assembly."* All three ended with the complete query set. The 2-of-3
+  short-circuit is now structurally impossible, not just discouraged, and the
+  agency surface stays healthy ("finish my homework", not "decide for me").
+  Side effect: with complete evidence the agent now reliably weighs promo
+  flexibility and chose `request_promo_revision`.
+- **Tests (+2, 62 → 64).** `test_playbook_execution.py`: a 2-of-3 scripted run is
+  gated (rejection names the missing flow, ordered before the surfaced decision)
+  then recovers on the third query; a scope-guard test pins inertness (unknown
+  playbook / wrong role / no queries). `test_phase5_dod.py` unchanged — the gate
+  only *enforces* the "same query set" half the DoD already asserts.
+
+### 2026-05-30 — Phase 5: Playbook execution + reader tools (the load-bearing claim)
+
+- **Reader tools land (`application/reader_tools.py`).** Four deterministic
+  world-state readers behind a registry mirroring `axiom_tools.py` (name →
+  callable, bound at boot via `Orchestrator.reader_tools`): `query_plants_for_sku`
+  (derives capable lines from the production schedule — `ProductionLine` has no
+  capability slot), `query_line_load`, `query_commitments_in_window`,
+  `query_supplier_for_sku`. A grounding miss returns `output=None` +
+  `unknown_entity` evidence (the axiom-tool floor); `query_supplier_for_sku` is
+  an honest miss — the demo world declares no SKU→supplier link, and the tool
+  refuses to fabricate one.
+- **`call_tool` wired** (`agent_toolkit.py`). Resolves the role's `scont:Tool`
+  decl, validates `input`/`output` against the declared classes via
+  `QuantumValidator`, dispatches to the registry. Undeclared name →
+  `no_such_tool`; grounding miss → `unknown_entity`. No per-tool branching in the
+  orchestrator. **The Phase 1.8 reach now connects** — the stub it hit is gone.
+- **`surface_decision` validates playbook refs.** Cited playbook checked against
+  `svc.playbooks_anchored_to(role)`; unknown → deterministic `unknown_playbook`
+  (mirrors `no_such_tool` / the axiom `unknown_entity` floor — rejects
+  non-existent names, **never ranks real ones**, §2-safe). Closes the
+  `fulfill_supply_request` playbook-ref hallucination the 1.8 trace surfaced. It
+  surfaces + validates only; it never executes or picks the resolution.
+- **`read_ontology` gains `playbook:<name>` + `playbooks_anchored_to:<role>`**,
+  so the Scene-5 agent's first action — reading its anchored playbook — resolves.
+- **Scene 5 scenario (`--scenario capacity-resolution`).** Design pivot worth
+  recording: the scenario **injects** the `CapacityConflict` straight into
+  supply_planning (seeder `inject_capacity_conflict`) rather than deriving it
+  from an upstream production assignment. Why — the first live run proved a
+  reader-tool-*grounded* supply_planning sizes the request to fit (or shifts to
+  an empty window: it assigned 4500 to NJ-L1 in days 129–135, dodging the
+  140–146 conflict). **The grounding fix works so well the agent avoids the
+  conflict** — so the playbook path has to begin with the conflict already
+  detected, per `plan_of_attack` §5. The three cross-domain query responders are
+  wired in **both** modes (new `responders` scenario key) so the live agent
+  weighs *real typed evidence* (§3 case-1 trade-off), with supply_planning the
+  only real LLM under test.
+- **always_fires is agent-driven, not orchestrator-enforced.** The orchestrator
+  has zero event→flow triggering; auto-firing `capacity_resolved` +
+  `plan_fulfillment` would add a primitive *and* playbook-specific knowledge to
+  the backbone (§2 violation). The agent fires them from the rendered playbook.
+  Soft guarantee, on-brand: the floor is axioms, not playbook completeness.
+- **Tests (+14, 48 → 62).** `test_reader_tools.py` (typed outputs + grounding
+  floor + output-class validation), `test_playbook_execution.py` (full Scene 5
+  wiring + the `surface_decision` rejection), `test_phase5_dod.py` (the §10
+  thesis made deterministic: two variants differing ONLY in resolution prove the
+  context-assembly query set is identical and independent of the choice).
+- **Live verification — the thesis holds, with two agency wobbles to brief
+  upstream.** Across live runs (`runs/phase5-live-{A,B,C}.jsonl`,
+  `gemini-3-flash-preview`): supply_planning reads the playbook, fans out the
+  context-assembly queries, surfaces a **validated** decision, picks one
+  resolution, fires always_fires. **Hallucinated-grounding is gone** — both
+  entity refs (NJ-L1, COM-TGT-SEC-Q2, inferred TP-SEC-6OZ/Target) and the
+  playbook ref are real and validated; the reasoning weighs the advisory criteria
+  and cites system mechanics (healthy agency surface per CLAUDE.md). **Judgment
+  tracks evidence**: with degraded boundary-stub evidence the agent chose
+  `re_request_production`; with real cross-domain evidence it chose
+  `shift_to_coman` (demo_narrative Scene 6's outcome). Two findings for the
+  ontology session, **not** orchestrator patches (per the Phase 5 stop
+  conditions): (a) resolutions *converged* across seeds (all `shift_to_coman`) —
+  within the DoD's "may differ", and genuine: the evidence strongly favours
+  co-man (qualified + capacity, low OTIF penalty) so consistent rational judgment,
+  not structured-away agency; (b) one run fired **2 of 3** context-assembly
+  queries — short-circuiting `wait_all` once co-man looked viable (the
+  menu-picking edge). The fix for both is stronger Playbook rendering / the
+  orientation that all three `context_assembly` queries are required before
+  deciding — upstream, never an orchestrator patch.
+
 ### 2026-05-30 — Phase 1.8 paired upstream + early reader-tool reach signal
 
 - **Phase 1.8 landed in `e2e_ontology`** (largest upstream change since Phase

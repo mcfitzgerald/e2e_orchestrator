@@ -21,6 +21,7 @@ from linkml_runtime.utils.schemaview import SchemaView
 from ontology_service import FlowSummary, OntologyService
 
 from ..durability.interface import DurabilityBackend, EventKind
+from . import reader_tools
 from .axiom_evaluator import AxiomEvaluator
 from .flow_router import FlowNotFoundError, FlowRouter
 from .fsm_tracker import FsmResult, FsmTracker
@@ -135,6 +136,10 @@ class Orchestrator:
         self._world = world_state if world_state is not None else _load_default_world_state(sv)
         self._axioms = AxiomEvaluator(service, self._world)
         self._fsm = FsmTracker(service, self._axioms, backend)
+        # Reader-tool registry (Phase 5): name → deterministic callable, bound
+        # at boot exactly like the axiom-tool registry. `call_tool` dispatches
+        # into this; no per-tool branching lives in the orchestrator.
+        self._readers = reader_tools.default_registry()
         self._handlers: dict[str, RoleHandler] = {}
         self._pending: list[asyncio.Task] = []
 
@@ -155,6 +160,16 @@ class Orchestrator:
     @property
     def world_state(self) -> Any | None:
         return self._world
+
+    @property
+    def validator(self) -> QuantumValidator:
+        return self._validator
+
+    @property
+    def reader_tools(self) -> dict[str, reader_tools.ReaderTool]:
+        """Reader-tool registry (`implementation` name → callable). `call_tool`
+        looks tools up here after resolving the role's `scont:Tool` decl."""
+        return self._readers
 
     def _schemaview(self) -> SchemaView:
         # The Ontology Service hides SchemaView but the orchestrator legitimately
@@ -488,6 +503,54 @@ class Orchestrator:
             idempotency_key=f"answer:{signal_name}",
         )
         self._backend.notify_signal(signal_name, response)
+
+    # ---- wait_all synchronization gate (Phase 5 follow-up) ----------------
+
+    def wait_all_missing(self, *, playbook: str, role: str, invocation_id: str) -> list[str]:
+        """Deterministic synchronization gate for a `wait_all` Playbook. Returns
+        the `required` context-assembly flows that do NOT yet have a recorded
+        query response for this decision context (the agent's current
+        invocation). Empty list means the gate is satisfied — or inert: no such
+        playbook anchored to the role, no `wait_all` synchronization, or no
+        `required` flows.
+
+        This enforces a declared-but-unconsumed contract (`synchronization` +
+        `context_assembly[].required`) the same way the axiom floor enforces
+        blocking axioms: gather all declared required evidence before the
+        decision is allowed to surface. It is the native home for borrowed
+        discipline #3 (signals as the primitive for waits).
+
+        §2 boundary (must hold): reads ONLY `synchronization` and the per-flow
+        `required` flags. It never reads `selects_one_of`, `criteria_refs`, or
+        any resolution-flow name — it gates on *evidence completeness*, never on
+        *which* resolution. The agent's judgment is untouched; only its homework
+        is enforced."""
+        view = self._svc.render_role_view(role)
+        pb = next((p for p in view.playbooks_anchored_to if p.name == playbook), None)
+        if pb is None or (pb.synchronization or "") != "wait_all":
+            return []
+        required = [s.flow for s in pb.context_assembly if s.required]
+        if not required:
+            return []
+
+        # A required flow is satisfied when this invocation fired a query for it
+        # AND that query's signal has a recorded response. Correlating on
+        # `by_invocation` scopes the check to the active decision — a response
+        # from a prior escalate_capacity_conflict round does not count.
+        events = self._backend.read_events()
+        answered = {
+            e.payload.get("signal")
+            for e in events
+            if e.kind == EventKind.QUERY_ANSWERED
+        }
+        satisfied = {
+            e.payload.get("flow")
+            for e in events
+            if e.kind == EventKind.QUERY_REQUESTED
+            and e.payload.get("by_invocation") == invocation_id
+            and e.payload.get("signal") in answered
+        }
+        return [f for f in required if f not in satisfied]
 
     # ---- FSM advance (tool-facing) ----------------------------------------
 

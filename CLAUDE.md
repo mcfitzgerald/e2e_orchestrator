@@ -117,7 +117,13 @@ at Phase 3 live verification (2026-05-29):
   loaded world state. Fix is reader tools (Phase 5 §6.2 Tool
   meta-construct) + a wired world-state loader (Phase 4), NOT prompt
   nudges. If a post-Phase-5 live run still shows this, reader-tool
-  wiring is broken or the Tool meta-construct isn't surfacing.
+  wiring is broken or the Tool meta-construct isn't surfacing. This
+  pattern spans more than world-state entities: at Phase 1.8 an agent
+  cited a *playbook* name that didn't exist (`surface_decision` on a
+  non-existent playbook). Same fix family — a deterministic rejection
+  floor (`unknown_entity` for entity refs, `unknown_playbook` for
+  playbook refs validated against `playbooks_anchored_to(role)`), never
+  a prompt nudge. Confirmed closed at Phase 5 live verification.
 
 The Phase 3 landmark to compare against: `supply_planning` inventing its
 own plant/line/window plan, citing the `line_capacity_not_exceeded` axiom

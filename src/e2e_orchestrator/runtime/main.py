@@ -172,6 +172,131 @@ _CONFLICT_SUPPLY_PLANNING = {
     ],
 }
 
+# Phase 5 — Scene 5 capacity resolution (the load-bearing demo moment). Same
+# 3000-unit conflict ingress as `capacity-conflict`; this time supply_planning's
+# `escalate_capacity_conflict` re-entry runs the `resolve_capacity_conflict`
+# Playbook instead of merely acknowledging. It reads the playbook, grounds a real
+# (plant, line) via reader tools, fans out the three context-assembly queries
+# (wait_all is a join — sequential await suffices), surfaces the decision, picks
+# ONE resolution (here shift_to_coman, per demo_narrative Scene 6), then fires the
+# playbook's always_fires effects (capacity_resolved event + plan_fulfillment).
+# In `--mode llm` the resolution is the LLM's to make and may differ per seed —
+# that contrast is the Phase 5 DoD. The script encodes ONE deterministic path so
+# the stub trace is reproducible.
+_CAPRES_SUPPLY_PLANNING = {
+    # Scene 4 ingress (unchanged): assign full uplift to NJ-L1 → overflows → the
+    # capacity axiom blocks and the orchestrator reroutes escalate_capacity_conflict.
+    "submit_supply_request": _CONFLICT_SUPPLY_PLANNING["submit_supply_request"],
+    # Scene 5: the Playbook executes here.
+    "escalate_capacity_conflict": [
+        # 1. First action on screen — read the playbook anchored to me (§10 proof).
+        ScriptedToolCall(tool="read_ontology", kwargs={"query": "playbook:resolve_capacity_conflict"}),
+        # 2. Ground a real (plant, line, window) instead of inventing one.
+        ScriptedToolCall(tool="call_tool", kwargs={"name": "query_plants_for_sku", "input": {"sku": "TP-FLAG-6OZ"}}),
+        ScriptedToolCall(
+            tool="call_tool",
+            kwargs={
+                "name": "query_line_load",
+                "input": {"plant_code": "PLANT-NJ", "line_code": "NJ-L1", "window_start_day": 140, "window_end_day": 146},
+            },
+        ),
+        # 3. Context assembly — the three declared query flows (wait_all join).
+        ScriptedToolCall(
+            tool="query",
+            kwargs={"flow": "check_otif_exposure", "query_quantum": {"sku": "TP-SEC-6OZ", "retailer": "TARGET", "proposed_delay_days": 3}},
+        ),
+        ScriptedToolCall(
+            tool="query",
+            kwargs={"flow": "check_promo_flexibility", "query_quantum": {"promo_id": "PROMO-WMT-FLAG-2026Q2", "proposed_change_kind": "shift_timing"}},
+        ),
+        ScriptedToolCall(
+            tool="query",
+            kwargs={"flow": "check_coman_availability", "query_quantum": {"sku": "TP-FLAG-6OZ", "volume": 1500, "window_start_day": 140, "window_end_day": 146}},
+        ),
+        # 4. Surface the decision (validates the playbook ref; never picks for us).
+        ScriptedToolCall(
+            tool="surface_decision",
+            kwargs={
+                "playbook": "resolve_capacity_conflict",
+                "context": {"shortfall_units": 1500, "at_risk_commitment": "COM-TGT-SEC-Q2"},
+                "options": ["re_request_production", "request_promo_revision", "shift_to_coman"],
+            },
+        ),
+        # 5. Pick ONE resolution path (judgment — scripted here as shift_to_coman).
+        ScriptedToolCall(
+            tool="handoff",
+            kwargs={
+                "flow": "shift_to_coman",
+                "quantum": {
+                    "request_id": "pr-coman-capres",
+                    "sku": "TP-FLAG-6OZ",
+                    "volume": 1500,
+                    "window_start_day": 140,
+                    "window_end_day": 146,
+                    "assigned_plant": "COMAN-1",
+                    "assigned_line": "COMAN-1-L1",
+                    "status": "assigned",
+                },
+            },
+        ),
+        # 6. always_fires — agent-driven (the orchestrator has no event→flow
+        #    trigger; firing these is the agent following the playbook, §2-safe).
+        ScriptedToolCall(tool="emit_event", kwargs={"name": "capacity_resolved", "payload": {"sku": "TP-FLAG-6OZ", "resolution": "shift_to_coman"}}),
+        ScriptedToolCall(
+            tool="handoff",
+            kwargs={
+                "flow": "plan_fulfillment",
+                "quantum": {
+                    "request_id": "sr-fulfillment-capres",
+                    "sku": "TP-FLAG-6OZ",
+                    "volume": 3000,
+                    "required_by": 146,
+                    "source_signal_ref": "PROMO-WMT-FLAG-2026Q2",
+                },
+            },
+        ),
+    ],
+}
+
+# Scripted query responders for the three cross-domain roles supply_planning
+# fans out to during context assembly. Each is keyed on its query flow and
+# returns a typed response via respond_to_query. (In --mode llm these are real
+# agents; the scripts only drive the stub DoD trace.)
+_CAPRES_LOGISTICS = {
+    "check_otif_exposure": [
+        ScriptedToolCall(
+            tool="respond_to_query",
+            kwargs={"response": {
+                "retailer": "TARGET", "sku": "TP-SEC-6OZ", "delay_days": 3,
+                "affected_shipment_value": 240000, "calculated_penalty": 7200,
+            }},
+        ),
+    ],
+}
+_CAPRES_CUSTOMER_DEV = {
+    "check_promo_flexibility": [
+        ScriptedToolCall(
+            tool="respond_to_query",
+            kwargs={"response": {
+                "promo_id": "PROMO-WMT-FLAG-2026Q2", "commitment_status": "aligned",
+                "can_shift_timing": True, "can_reduce_volume": True,
+                "notes": "Walmart promo still aligned (not committed); timing shift negotiable.",
+            }},
+        ),
+    ],
+}
+_CAPRES_COMAN = {
+    "check_coman_availability": [
+        ScriptedToolCall(
+            tool="respond_to_query",
+            kwargs={"response": {
+                "sku": "TP-FLAG-6OZ", "is_qualified": True, "has_capacity": True,
+                "premium_cost_per_unit": 0.85, "lead_time_days": 10,
+            }},
+        ),
+    ],
+}
+
 # Original Phase 2 demand-anomaly round trip.
 _ANOMALY_DEMAND_PLANNING = [
     ScriptedToolCall(tool="read_ontology", kwargs={"query": "my_view"}),
@@ -190,6 +315,37 @@ _ANOMALY_DEMAND_PLANNING = [
     ),
     ScriptedToolCall(tool="emit_event", kwargs={"name": "forecast_revised", "payload": {"sku": "sku-toothpaste-6oz"}}),
 ]
+
+
+# ---------------------------------------------------------------------------
+# Scene 5 seeder — inject a detected capacity conflict straight into
+# supply_planning. plan_of_attack §5 says Scene 5 *begins* with the conflict
+# already detected: the orchestrator routes a CapacityConflict to supply_planning
+# via escalate_capacity_conflict and the resolve_capacity_conflict Playbook is
+# the agent's first action. Deriving the conflict from an upstream production
+# assignment is unreliable live — a reader-tool-grounded supply_planning sizes
+# the request to fit (or shifts the window) and avoids the conflict entirely
+# (exactly the grounding win Phase 5 delivers). Injection makes the playbook
+# path deterministic without scripting the agent's judgment.
+# ---------------------------------------------------------------------------
+
+
+async def inject_capacity_conflict(orch: Orchestrator) -> DispatchResult:
+    """Seed Scene 5: route a CapacityConflict to supply_planning. The payload
+    mirrors what the Phase 4 capacity axiom tool builds (NJ-L1 over capacity in
+    the promo window, Target's TP-SEC-6OZ commitment at risk)."""
+    return await orch.dispatch_boundary_ingress(
+        "escalate_capacity_conflict",
+        {
+            "conflict_id": "conf-scene5",
+            "line_ref": "NJ-L1",
+            "competing_skus": ["TP-FLAG-6OZ", "TP-SEC-6OZ"],
+            "shortfall_units": 1500,
+            "at_risk_commitments": ["COM-TGT-SEC-Q2"],
+            "window_start_day": 140,
+            "window_end_day": 146,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -215,6 +371,22 @@ SCENARIOS: dict[str, dict] = {
             "demand_planning": _CONFLICT_DEMAND_PLANNING,
             "supply_planning": _CONFLICT_SUPPLY_PLANNING,
             "production_planning": _PROMO_PRODUCTION_PLANNING,
+        },
+    },
+    "capacity-resolution": {
+        "seeder": inject_capacity_conflict,
+        "scripts": {
+            "supply_planning": _CAPRES_SUPPLY_PLANNING,
+        },
+        # Cross-domain query responders. These stand in for external/boundary
+        # domains (logistics, commercial, co-man) and are wired in BOTH modes so
+        # the live supply_planning agent weighs *real typed evidence* (§3 case 1:
+        # heterogeneous trade-off) rather than empty boundary stubs. The role
+        # under test — supply_planning — stays a real LLM in `--mode llm`.
+        "responders": {
+            "logistics_planning": _CAPRES_LOGISTICS,
+            "customer_development": _CAPRES_CUSTOMER_DEV,
+            "co_manufacturing": _CAPRES_COMAN,
         },
     },
     "demand-anomaly": {
@@ -255,6 +427,12 @@ async def run_scenario(
     # scripted falls back to the factory default (InternalStubHandler in stub
     # mode), which simply acknowledges.
     overrides: dict = {}
+    # Cross-domain responders (if any) are simulated in every mode — they model
+    # external domains, not the role under test.
+    for role, script in spec.get("responders", {}).items():
+        overrides[role] = ScriptedAgentHandler(role, orch=None, script=script)
+    # The role under test + the rest of the path are scripted only in stub mode;
+    # in llm mode they come from the ontology role view (a real LlmAgentHandler).
     if mode == "stub":
         for role, script in spec["scripts"].items():
             overrides[role] = ScriptedAgentHandler(role, orch=None, script=script)
