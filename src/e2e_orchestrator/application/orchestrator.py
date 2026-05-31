@@ -700,6 +700,10 @@ class Orchestrator:
                 "quantum_id": quantum_id,
                 "quantum_class": quantum_class,
                 "expects_response": expected_response_class,
+                # The model actually used (None for boundary/stub handlers). Stamped
+                # so every trace self-documents which model ran — "verified on X" is
+                # then evidence in the artifact, not an assertion that can drift.
+                "model": getattr(handler, "_model", None),
             },
         )
 

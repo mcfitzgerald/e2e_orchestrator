@@ -170,20 +170,31 @@ elaborated in the memory file.
 - Phase 3 live: 2026-05-29, `gemini-2.5-flash`. Three roles, no per-role code,
   supply_planning agency-precursor moment (hallucinated). Trace:
   `runs/phase3-live.jsonl`.
-- Phase 4 live: 2026-05-30, `gemini-2.5-flash` then `gemini-3-flash-preview`
-  (model migration mid-Phase-4). Capacity axiom catches hallucination via
-  `unknown_entity`; auto-recovery threads through. Traces:
+- Phase 4 live: 2026-05-30, `gemini-2.5-flash`. Capacity axiom catches
+  hallucination via `unknown_entity`; auto-recovery threads through. Traces:
   `runs/phase4-{promo,conflict,respect-lt}-live.jsonl`.
+- Phase 5 live: 2026-05-30, `gemini-2.5-flash` (NOT the preview — see below).
+  Traces: `runs/phase5-live-{A,B,C}.jsonl`.
+- First Gemini 3.x run: 2026-05-31, `gemini-3.5-flash` on `global`. Light path +
+  Scene 5 both verified, agency surface healthy + grounded. Traces:
+  `runs/local-3.5-global.jsonl`, `runs/local-3.5-capres.jsonl`.
 
-### Model migration (2026-05-30)
+### Model (corrected 2026-05-31)
 
-Migrated from `gemini-2.5-flash` to `gemini-3-flash-preview` because 2.5 is
-retiring no earlier than 2026-10-16 and we'd have to migrate before Phase 8
-demo prep anyway. ~3× faster, +15% accuracy, modest cost premium ($0.50/$3.00
-vs $0.30/$2.50 per 1M tokens) — negligible at our usage volume. Required no
-region change (works on `us-east4`). Model identifier is config now, not
-code — the agent factory raises a clear error if `E2E_AGENT_MODEL` isn't set;
-`.env.example` documents the current recommendation.
+**Every live run through Phase 5 ran on `gemini-2.5-flash`.** The 2026-05-30
+"migration to `gemini-3-flash-preview`" was config-template-only — it edited
+`.env.example` and removed the code fallback but never moved the running model
+(the active `.env` stayed on 2.5-flash), and `gemini-3-flash-preview` in fact
+404s on this project (Pre-GA, region-gated — unavailable on us-east4 and global).
+It went unnoticed because traces didn't record the model.
+
+Current model: **`gemini-3.5-flash`** (GA 2026-05-19), which **requires
+`GOOGLE_CLOUD_LOCATION=global`** on this project. Platform stays **Vertex /
+Gemini Enterprise Agent Platform** (enterprise/GCP deployment target; the
+Developer-API-key path is the documented escape hatch). The model identifier is
+config not code (factory raises if `E2E_AGENT_MODEL` is unset), and the
+`AGENT_INVOCATION_STARTED` trace event now stamps the model so this can't drift
+again.
 
 ## 6. What this session does next
 

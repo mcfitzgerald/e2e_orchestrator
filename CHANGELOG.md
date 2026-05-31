@@ -7,6 +7,45 @@ date-stamped session entries, no tagged releases yet, everything under
 
 ## [Unreleased]
 
+### 2026-05-31 — Model: actually move to `gemini-3.5-flash` (GA) + record the model in traces
+
+- **The record correction first (this matters more than the change).** The
+  2026-05-30 "migration to `gemini-3-flash-preview`" never took effect at
+  runtime: it edited `.env.example` and removed the code fallback, but the active
+  `.env` stayed on `gemini-2.5-flash`. **Every live run through Phase 5 — Phases
+  2, 3, 4, and 5 — actually ran on `gemini-2.5-flash`.** The "verified on
+  gemini-3-flash-preview" claims in the 2026-05-30 and Phase 5 entries are wrong
+  and have been marked inline. Root cause it stayed hidden: **the trace never
+  recorded which model ran**, so the claim drifted with nothing to check it
+  against.
+- **`gemini-3-flash-preview` does not work on this project.** It 404s
+  (`Publisher Model ... not found or your project does not have access`) on both
+  `us-east4` and `global` — it is Pre-GA and region-gated. We were never able to
+  use it; the prior "works on us-east4" note was false.
+- **Moved to `gemini-3.5-flash` (GA since 2026-05-19).** Verified live on this
+  machine: `--scenario demand-anomaly` (clean, 0 `quantum_rejected`) and the
+  load-bearing `--scenario capacity-resolution` (Scene 5: 3 context-assembly
+  queries fired, `wait_all_unsatisfied: 0`, decision surfaced + validated,
+  resolution `shift_to_coman`, `plan_fulfillment` fired). **First time the
+  project has run on a Gemini 3.x model at all.** Agency surface **healthy +
+  grounded** per the CLAUDE.md heuristic — real entities via reader tools
+  (`NJ-L1`, `TP-FLAG-6OZ`, `COM-TGT-SEC-Q2`), operational stance, genuine
+  OTIF-vs-co-man trade-off reasoning; it even adapted reader-tool queries
+  (`TGT` vs `Target`) rather than hallucinating. Traces:
+  `runs/local-3.5-global.jsonl`, `runs/local-3.5-capres.jsonl`.
+- **`gemini-3.5-flash` requires `GOOGLE_CLOUD_LOCATION=global`** on this project
+  (404s on `us-east4`). Newer GA models land on the global endpoint first.
+- **Platform decision recorded.** Staying on **Vertex AI / Gemini Enterprise
+  Agent Platform** (not the Gemini Developer API key path): it's the
+  enterprise/GCP deployment target ADK co-designs for, the auth setup is already
+  paid, and switching is a one-env-var toggle if that ever changes. The
+  Developer-API-key path stays documented in `.env.example` as the low-friction
+  escape hatch.
+- **`agent_factory` / orchestrator:** the `AGENT_INVOCATION_STARTED` event now
+  stamps `model` (the model the handler used; `None` for boundary/stub handlers),
+  so every trace self-documents the model and this class of drift can't recur.
+  64 tests pass; added/adjusted nothing in the structural DoD.
+
 ### 2026-05-31 — Cross-repo dependency: `e2e-ontology` as an editable package
 
 - **The ontology is now a declared dependency**, not a `sys.path` shim. `pyproject.toml` lists `e2e-ontology` and installs it via `[tool.uv.sources]` as an editable local checkout (`../e2e_ontology`); a commented git-pin recipe (`{ git = ..., rev = <sha> }`) documents the reproducible/CI path when a version pin is wanted.
@@ -101,7 +140,9 @@ date-stamped session entries, no tagged releases yet, everything under
   context-assembly query set is identical and independent of the choice).
 - **Live verification — the thesis holds, with two agency wobbles to brief
   upstream.** Across live runs (`runs/phase5-live-{A,B,C}.jsonl`,
-  `gemini-3-flash-preview`): supply_planning reads the playbook, fans out the
+  ~~`gemini-3-flash-preview`~~ **[CORRECTION 2026-05-31: these runs actually ran
+  on `gemini-2.5-flash` — the active `.env` was never moved off it; see the
+  2026-05-31 entry]**): supply_planning reads the playbook, fans out the
   context-assembly queries, surfaces a **validated** decision, picks one
   resolution, fires always_fires. **Hallucinated-grounding is gone** — both
   entity refs (NJ-L1, COM-TGT-SEC-Q2, inferred TP-SEC-6OZ/Target) and the
@@ -170,6 +211,15 @@ date-stamped session entries, no tagged releases yet, everything under
   `DecisionSurface` quantum).
 
 ### 2026-05-30 — Model migration to `gemini-3-flash-preview` + Phase 1.7b pairing + dev-manager seed
+
+> **[CORRECTION 2026-05-31]** This entry is inaccurate. The "migration" changed
+> only `.env.example` and the code fallback — it never moved the *running* model.
+> The active `.env` stayed on `gemini-2.5-flash`, so the "live re-verification on
+> gemini-3-flash-preview" below **did not happen on that model** (it ran on
+> 2.5-flash). `gemini-3-flash-preview` in fact 404s on this project (Pre-GA,
+> not available on us-east4 *or* global). See the 2026-05-31 entry for the real
+> migration to `gemini-3.5-flash`. The claim "the preview works on us-east4" is
+> false.
 
 - **Model migration.** Default agent model moved from `gemini-2.5-flash` to
   `gemini-3-flash-preview` (Vertex preview). Three reasons: (1) 2.5-flash is on
