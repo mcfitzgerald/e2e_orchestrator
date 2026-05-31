@@ -26,7 +26,11 @@ def test_boundary_role_gets_boundary_stub(ontology_service):
     assert isinstance(handler, BoundaryStubHandler)
 
 
-def test_non_boundary_in_llm_mode_gets_llm_handler(ontology_service):
+def test_non_boundary_in_llm_mode_gets_llm_handler(ontology_service, monkeypatch):
+    # Hermetic: the factory requires a configured model to build an LlmAgentHandler
+    # (the E2E_AGENT_MODEL guard). Set it here so this handler-selection test does
+    # not depend on an ambient .env — it must pass on a fresh clone too.
+    monkeypatch.setenv("E2E_AGENT_MODEL", "gemini-2.5-flash")
     orch = _make_orch(ontology_service, mode="llm")
     handler = orch._get_handler("demand_planning")
     assert isinstance(handler, LlmAgentHandler)
