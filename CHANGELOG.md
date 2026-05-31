@@ -7,6 +7,31 @@ date-stamped session entries, no tagged releases yet, everything under
 
 ## [Unreleased]
 
+### 2026-05-31 — Cost visibility: token stamping + three runaway-loop trips
+
+- **Token usage stamped per invocation.** `LlmAgentHandler.invoke` sums ADK's
+  per-turn `usage_metadata` (prompt / candidates / total tokens) and returns it;
+  it lands in the `AGENT_INVOCATION_COMPLETED` event's `outcome.usage`. Per-run
+  cost is now computable from the trace with zero billing lag. This immediately
+  surfaced a real exposure: one `supply_planning` invocation on `demand-anomaly`
+  burned **~669k tokens (~$1)** — flagged for investigation (likely the prompt
+  re-sending the full role view + accumulated tool results each turn).
+- **Three runaway-loop trips** (deterministic, in-code — billing lags ~a day):
+  - **Layer 1 — per-invocation LLM calls.** `agent_factory` now passes
+    `RunConfig(max_llm_calls=...)` to `run_async` (`E2E_MAX_LLM_CALLS`, default
+    50). Previously unset → ADK's default of **500** was the only ceiling.
+  - **Layer 2 — per-run tokens.** The orchestrator accumulates the stamped
+    usage and halts if cumulative tokens exceed `E2E_MAX_RUN_TOKENS` (default
+    5,000,000 ≈ $7.50). Direct cost cap.
+  - **Layer 3 — per-run invocations.** The orchestrator caps total agent
+    dispatches at `E2E_MAX_INVOCATIONS` (default 25) — catches flow ping-pong /
+    infinite auto-reroute loops that Layer 1 can't see (they span invocations).
+  - A trip emits the new `RUNAWAY_GUARD_TRIPPED` event and raises
+    `RunawayGuardError`, halting the run with the reason in the trace. Defaults
+    are loose tripwires (above the heaviest observed legit run), tunable via env.
+  - Tests: `test_runaway_guards.py` pins Layers 2 + 3 deterministically in stub
+    mode (Layer 1 is ADK-native, fires only against a live model). 66 tests pass.
+
 ### 2026-05-31 — Model: actually move to `gemini-3.5-flash` (GA) + record the model in traces
 
 - **The record correction first (this matters more than the change).** The

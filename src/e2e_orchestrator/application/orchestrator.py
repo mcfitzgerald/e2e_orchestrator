@@ -12,6 +12,7 @@ it routes by `target_role`. The LLM never decides routing or evaluates axioms.
 from __future__ import annotations
 
 import asyncio
+import os
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Protocol
@@ -108,6 +109,12 @@ class UnknownRoleError(KeyError):
     pass
 
 
+class RunawayGuardError(RuntimeError):
+    """Raised when a run-level safety trip fires (too many invocations or too
+    many cumulative tokens). Halts the run deterministically; the matching
+    RUNAWAY_GUARD_TRIPPED event records which guard and the counts."""
+
+
 class Orchestrator:
     """Single application-layer entry point. Owns the durability backend and
     the deterministic backbone; binds role names to handlers via a factory
@@ -142,6 +149,18 @@ class Orchestrator:
         self._readers = reader_tools.default_registry()
         self._handlers: dict[str, RoleHandler] = {}
         self._pending: list[asyncio.Task] = []
+        # Runaway-loop trips (deterministic, in-code — billing lags ~a day so
+        # these are the real protection). All env-tunable; defaults are loose
+        # tripwires for genuine runaway, NOT tight budgets — sized above the
+        # heaviest observed legit run (capacity-resolution: 6 invocations; one
+        # supply_planning invocation ~0.67M tokens). Tighten once the
+        # token-heaviness is understood. A trip emits RUNAWAY_GUARD_TRIPPED and
+        # raises RunawayGuardError, halting the run with the reason in the trace.
+        # (Per-invocation LLM-call cap lives in agent_factory via RunConfig.)
+        self._max_invocations = int(os.environ.get("E2E_MAX_INVOCATIONS", "25"))
+        self._max_run_tokens = int(os.environ.get("E2E_MAX_RUN_TOKENS", "5000000"))
+        self._invocation_count = 0
+        self._run_tokens = 0
 
     # ---- accessors used by tool closures + tests --------------------------
 
@@ -691,6 +710,26 @@ class Orchestrator:
             setattr(ctx, "response_signal", response_signal)
             setattr(ctx, "expected_response_class", expected_response_class)
 
+        # Runaway trip (Layer 3): cap total agent invocations per run. Catches
+        # flow ping-pong / infinite auto-reroute loops — which the per-invocation
+        # LLM-call cap cannot see, because those span invocations.
+        self._invocation_count += 1
+        if self._max_invocations and self._invocation_count > self._max_invocations:
+            self._backend.append(
+                EventKind.RUNAWAY_GUARD_TRIPPED,
+                {
+                    "guard": "max_invocations",
+                    "limit": self._max_invocations,
+                    "count": self._invocation_count,
+                    "role": target_role,
+                    "invocation_id": invocation_id,
+                },
+            )
+            raise RunawayGuardError(
+                f"max agent invocations per run exceeded ({self._max_invocations}); "
+                "set E2E_MAX_INVOCATIONS to adjust"
+            )
+
         self._backend.append(
             EventKind.AGENT_INVOCATION_STARTED,
             {
@@ -729,6 +768,27 @@ class Orchestrator:
             self._backend.append(
                 EventKind.AGENT_INVOCATION_COMPLETED,
                 {"role": target_role, "invocation_id": invocation_id, "outcome": outcome},
+            )
+
+        # Runaway trip (Layer 2): accumulate the stamped token usage and halt the
+        # whole run if cumulative tokens cross the ceiling. Direct cost control
+        # with zero billing lag. Runs only on the success path (an invoke that
+        # raised already propagated above).
+        self._run_tokens += int((outcome.get("usage") or {}).get("total_tokens", 0) or 0)
+        if self._max_run_tokens and self._run_tokens > self._max_run_tokens:
+            self._backend.append(
+                EventKind.RUNAWAY_GUARD_TRIPPED,
+                {
+                    "guard": "max_run_tokens",
+                    "limit": self._max_run_tokens,
+                    "run_tokens": self._run_tokens,
+                    "role": target_role,
+                    "invocation_id": invocation_id,
+                },
+            )
+            raise RunawayGuardError(
+                f"max cumulative tokens per run exceeded ({self._max_run_tokens}); "
+                "set E2E_MAX_RUN_TOKENS to adjust"
             )
 
 

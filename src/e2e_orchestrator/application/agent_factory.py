@@ -174,6 +174,7 @@ class LlmAgentHandler:
     async def invoke(self, ctx: ToolContext, message: str) -> dict[str, Any]:
         # Late-import ADK so the rest of the package imports cleanly without it.
         from google.adk.agents.llm_agent import LlmAgent
+        from google.adk.agents.run_config import RunConfig
         from google.adk.runners import Runner
         from google.adk.sessions import InMemorySessionService
         from google.genai import types as genai_types
@@ -196,10 +197,29 @@ class LlmAgentHandler:
         )
         runner = Runner(agent=agent, app_name=app_name, session_service=session_service)
 
+        # Runaway trip (Layer 1): cap LLM calls within a single invocation. ADK's
+        # default is 500 (effectively no ceiling for our use); one agent looping
+        # on tool calls is the most likely runaway, so bound it low + tunable.
+        max_calls = int(os.environ.get("E2E_MAX_LLM_CALLS", "50"))
+        run_config = RunConfig(max_llm_calls=max_calls)
+
         content = genai_types.Content(role="user", parts=[genai_types.Part(text=message)])
         reasoning: list[str] = []
         final_text: str | None = None
-        async for event in runner.run_async(user_id=user_id, session_id=session_id, new_message=content):
+        # Token accounting for per-run cost attribution. ADK attaches
+        # usage_metadata to the final event of each model turn; a tool-using
+        # invocation has several turns, so we sum across events that carry it.
+        # (We don't run in streaming mode, so each usage_metadata is a completed
+        # turn, not a partial — summing is correct, not double-counting.)
+        usage = {"prompt_tokens": 0, "candidates_tokens": 0, "total_tokens": 0}
+        async for event in runner.run_async(
+            user_id=user_id, session_id=session_id, new_message=content, run_config=run_config
+        ):
+            um = getattr(event, "usage_metadata", None)
+            if um is not None:
+                usage["prompt_tokens"] += getattr(um, "prompt_token_count", 0) or 0
+                usage["candidates_tokens"] += getattr(um, "candidates_token_count", 0) or 0
+                usage["total_tokens"] += getattr(um, "total_token_count", 0) or 0
             text = _extract_text(event)
             if text:
                 reasoning.append(text)
@@ -209,7 +229,13 @@ class LlmAgentHandler:
                 )
             if hasattr(event, "is_final_response") and event.is_final_response():
                 final_text = text
-        return {"kind": "llm", "role": self.role, "final_text": final_text, "reasoning_chunks": len(reasoning)}
+        return {
+            "kind": "llm",
+            "role": self.role,
+            "final_text": final_text,
+            "reasoning_chunks": len(reasoning),
+            "usage": usage,
+        }
 
 
 async def _maybe_await(x):

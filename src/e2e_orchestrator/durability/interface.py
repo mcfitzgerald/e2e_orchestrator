@@ -31,6 +31,7 @@ class EventKind:
     DECISION_SURFACED = "decision_surfaced"
     QUANTUM_REJECTED = "quantum_rejected"
     WAIT_ALL_UNSATISFIED = "wait_all_unsatisfied"
+    RUNAWAY_GUARD_TRIPPED = "runaway_guard_tripped"
 
 
 @dataclass(frozen=True)
