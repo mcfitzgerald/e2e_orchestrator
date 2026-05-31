@@ -348,10 +348,31 @@ wheels = [
 ]
 
 [[package]]
+name = "e2e-ontology"
+version = "0.1.0"
+source = { editable = "../e2e_ontology" }
+dependencies = [
+    { name = "linkml-runtime" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "linkml", marker = "extra == 'dev'", specifier = ">=1.7" },
+    { name = "linkml-runtime", specifier = ">=1.7" },
+    { name = "pydantic", specifier = ">=2.6" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
 name = "e2e-orchestrator"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "e2e-ontology" },
     { name = "google-adk" },
     { name = "linkml-runtime" },
     { name = "pydantic" },
@@ -366,6 +387,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "e2e-ontology", editable = "../e2e_ontology" },
     { name = "google-adk", specifier = ">=1.0" },
     { name = "linkml-runtime", specifier = ">=1.7" },
     { name = "pydantic", specifier = ">=2.6" },

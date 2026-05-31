@@ -7,6 +7,13 @@ date-stamped session entries, no tagged releases yet, everything under
 
 ## [Unreleased]
 
+### 2026-05-31 — Cross-repo dependency: `e2e-ontology` as an editable package
+
+- **The ontology is now a declared dependency**, not a `sys.path` shim. `pyproject.toml` lists `e2e-ontology` and installs it via `[tool.uv.sources]` as an editable local checkout (`../e2e_ontology`); a commented git-pin recipe (`{ git = ..., rev = <sha> }`) documents the reproducible/CI path when a version pin is wanted.
+- **Removed `src/e2e_orchestrator/_bootstrap.py`** and its side-effecting import. `exploder` / `ontology_service` resolve as normal installed modules, and the YAML data-file paths now come from `ontology_service.paths` (`SUPPLY_CHAIN_DEMO_YAML`, `WORLD_STATE_YAML`) instead of being derived from the bootstrap-resolved repo path. Callers updated: `runtime/main.py`, `application/orchestrator.py`, `tests/conftest.py`.
+- **Why.** A fresh clone or CI run previously failed unless a sibling `e2e_ontology` happened to sit at the conventional path, and nothing recorded which ontology version the orchestrator was verified against. The package dependency fixes both — and pinning to a git rev closes the version-pin gap entirely when reproducibility matters.
+- **Verified.** 64 tests green; stub scenario unchanged; imports + data-file resolution confirmed CWD-independent (from an unrelated working directory).
+
 ### 2026-05-30 — Phase 5 follow-up: `wait_all` enforced as a deterministic gate
 
 - **`wait_all` is now a consumed contract, not a comment.** The

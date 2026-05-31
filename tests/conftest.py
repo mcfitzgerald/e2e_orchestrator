@@ -6,13 +6,14 @@ from __future__ import annotations
 
 import pytest
 
-from e2e_orchestrator import _bootstrap  # noqa: F401 — surfaces ontology repo
-from ontology_service import OntologyService
+from ontology_service import WORLD_STATE_YAML, OntologyService
 
 
 @pytest.fixture(scope="session")
 def ontology_yaml_path():
-    return _bootstrap.ONTOLOGY_YAML_PATH
+    from ontology_service import SUPPLY_CHAIN_DEMO_YAML
+
+    return SUPPLY_CHAIN_DEMO_YAML
 
 
 @pytest.fixture(scope="session")
@@ -25,4 +26,4 @@ def world_state(ontology_service):
     """The demo world fixture, validated against the loaded schema."""
     from e2e_orchestrator.world_state import WorldState
 
-    return WorldState.load(_bootstrap.WORLD_STATE_YAML_PATH, ontology_service.ontology.schema_view)
+    return WorldState.load(WORLD_STATE_YAML, ontology_service.ontology.schema_view)

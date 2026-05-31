@@ -5,6 +5,7 @@ description = "Orchestrator + generic agent runtime over the e2e_ontology supply
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "e2e-ontology",
     "google-adk>=1.0",
     "linkml-runtime>=1.7",
     "pydantic>=2.6",
@@ -32,7 +33,9 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "-ra"
 
-[tool.uv]
-# The e2e_ontology repo currently has no pyproject; we surface it on sys.path
-# via src/e2e_orchestrator/_bootstrap.py rather than installing it as a package.
-# Override via the E2E_ONTOLOGY_PATH env var if the sibling layout doesn't hold.
+# The ontology is a real dependency, consumed from a local editable checkout
+# (sibling directory) during development. For a reproducible/CI build, pin it to
+# a commit instead, e.g.:
+#   e2e-ontology = { git = "https://github.com/mcfitzgerald/e2e_ontology.git", rev = "<sha>" }
+[tool.uv.sources]
+e2e-ontology = { path = "../e2e_ontology", editable = true }

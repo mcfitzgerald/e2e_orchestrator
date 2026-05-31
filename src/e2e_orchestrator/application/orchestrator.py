@@ -746,13 +746,13 @@ def _load_default_world_state(schemaview: SchemaView):
     keep the world_state package off the orchestrator's module-load path (it
     imports back into the application layer). Returns None if the fixture is
     absent so tests/embeddings without a fixture still construct cleanly."""
-    from .. import _bootstrap
+    from ontology_service import WORLD_STATE_YAML
+
     from ..world_state import WorldState
 
-    path = getattr(_bootstrap, "WORLD_STATE_YAML_PATH", None)
-    if path is None or not path.is_file():
+    if not WORLD_STATE_YAML.is_file():
         return None
-    return WorldState.load(path, schemaview)
+    return WorldState.load(WORLD_STATE_YAML, schemaview)
 
 
 def _new_quantum_id() -> str:

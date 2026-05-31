@@ -31,14 +31,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Awaitable, Callable
 
-from .. import _bootstrap
 from .._env import load_dotenv_if_present
 
 # Load .env at import time so ADK env vars are visible before the agent factory
 # is built. Idempotent; no-op if no .env exists.
 load_dotenv_if_present()
 
-from ontology_service import OntologyService
+from ontology_service import SUPPLY_CHAIN_DEMO_YAML, OntologyService
 
 from ..application.agent_factory import (
     ScriptedAgentHandler,
@@ -417,7 +416,7 @@ async def run_scenario(
         raise ValueError(f"unknown scenario {scenario!r}; choose from {sorted(SCENARIOS)}")
     spec = SCENARIOS[scenario]
 
-    yaml_path = ontology_yaml or _bootstrap.ONTOLOGY_YAML_PATH
+    yaml_path = ontology_yaml or SUPPLY_CHAIN_DEMO_YAML
     service = OntologyService.load(yaml_path)
     backend = JsonlBackend(log_path=log_path)
 
