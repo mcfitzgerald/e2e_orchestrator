@@ -211,13 +211,17 @@ class LlmAgentHandler:
         # invocation has several turns, so we sum across events that carry it.
         # (We don't run in streaming mode, so each usage_metadata is a completed
         # turn, not a partial — summing is correct, not double-counting.)
-        usage = {"prompt_tokens": 0, "candidates_tokens": 0, "total_tokens": 0}
+        # cached_tokens is a SUBSET of prompt_tokens (the re-sent prefix served
+        # from Gemini's cache at a discount) — tracked separately so cost can be
+        # estimated accurately, not double-counted.
+        usage = {"prompt_tokens": 0, "cached_tokens": 0, "candidates_tokens": 0, "total_tokens": 0}
         async for event in runner.run_async(
             user_id=user_id, session_id=session_id, new_message=content, run_config=run_config
         ):
             um = getattr(event, "usage_metadata", None)
             if um is not None:
                 usage["prompt_tokens"] += getattr(um, "prompt_token_count", 0) or 0
+                usage["cached_tokens"] += getattr(um, "cached_content_token_count", 0) or 0
                 usage["candidates_tokens"] += getattr(um, "candidates_token_count", 0) or 0
                 usage["total_tokens"] += getattr(um, "total_token_count", 0) or 0
             text = _extract_text(event)

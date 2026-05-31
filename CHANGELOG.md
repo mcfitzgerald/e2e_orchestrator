@@ -7,6 +7,23 @@ date-stamped session entries, no tagged releases yet, everything under
 
 ## [Unreleased]
 
+### 2026-05-31 — Cut redundant context: `my_view` returns a pointer; capture cached tokens
+
+- **`read_ontology("my_view")` no longer returns the full role view.** That view
+  is *already* the agent's system instruction, so fetching it duplicated a large
+  payload into the conversation that then rode along in every subsequent turn
+  (and, by injecting mid-context, could defeat prefix caching). It now returns a
+  short pointer. Measured on `demand-anomaly`: one `supply_planning` invocation
+  dropped **669k → 316k total tokens (−53%)**. (Caveat: n=1 and the LLM is
+  non-deterministic — the duplicated-payload removal is the deterministic win;
+  the tool-call drop 23→13 is partly that, partly run variance.) Scripts/tests
+  that call `my_view` are unaffected — they don't depend on the return content.
+- **Usage stamp now also captures `cached_tokens`** (`cached_content_token_count`,
+  a subset of `prompt_tokens`). On that run, **151k of 306k input tokens (~49%)
+  were implicit-cache-discounted** → real cost ≈ **$0.30** vs ≈$0.47 uncached.
+  Confirms Gemini implicit caching is active. Note: cached tokens are a *cost*
+  discount, not freed context — they still occupy the window.
+
 ### 2026-05-31 — Cost visibility: token stamping + three runaway-loop trips
 
 - **Token usage stamped per invocation.** `LlmAgentHandler.invoke` sums ADK's

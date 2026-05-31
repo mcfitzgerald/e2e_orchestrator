@@ -89,8 +89,9 @@ def make_toolkit(orch: Orchestrator, ctx: ToolContext) -> ToolKit:
                                        paths, always_fires).
                 - "playbooks_anchored_to:<role>" — list the playbooks anchored
                                        to a role and what triggers each.
-                - "my_view"         — return my full role view (the same one
-                                       rendered into my system prompt).
+                - "my_view"         — reminder that your full role view is
+                                       already your system instruction (returns
+                                       a short pointer, not the full view).
             target: Unused — kept for forward compatibility with structured queries.
 
         Returns:
@@ -100,7 +101,17 @@ def make_toolkit(orch: Orchestrator, ctx: ToolContext) -> ToolKit:
         result: dict[str, Any]
         try:
             if query == "my_view":
-                result = svc.render_role_view(ctx.role).as_json()
+                # Your full role view is ALREADY your system instruction.
+                # Returning it again duplicates a large payload into the
+                # conversation, re-sent every subsequent turn (token bloat, and
+                # injecting it mid-context can defeat prefix caching). Return a
+                # pointer, not the full view.
+                result = {
+                    "note": (
+                        "Your full role view is already provided as your system "
+                        "instruction — re-read it there. No tool fetch needed."
+                    )
+                }
             elif query.startswith("role:"):
                 view = svc.render_role_view(query.split(":", 1)[1])
                 result = view.as_json()
