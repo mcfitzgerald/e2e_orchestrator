@@ -158,7 +158,7 @@ class Orchestrator:
         # raises RunawayGuardError, halting the run with the reason in the trace.
         # (Per-invocation LLM-call cap lives in agent_factory via RunConfig.)
         self._max_invocations = int(os.environ.get("E2E_MAX_INVOCATIONS", "25"))
-        self._max_run_tokens = int(os.environ.get("E2E_MAX_RUN_TOKENS", "5000000"))
+        self._max_run_tokens = int(os.environ.get("E2E_MAX_RUN_TOKENS", "2000000"))
         self._invocation_count = 0
         self._run_tokens = 0
 

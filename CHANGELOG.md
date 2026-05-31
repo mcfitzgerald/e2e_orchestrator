@@ -39,7 +39,7 @@ date-stamped session entries, no tagged releases yet, everything under
     50). Previously unset → ADK's default of **500** was the only ceiling.
   - **Layer 2 — per-run tokens.** The orchestrator accumulates the stamped
     usage and halts if cumulative tokens exceed `E2E_MAX_RUN_TOKENS` (default
-    5,000,000 ≈ $7.50). Direct cost cap.
+    2,000,000 ≈ $3). Direct cost cap.
   - **Layer 3 — per-run invocations.** The orchestrator caps total agent
     dispatches at `E2E_MAX_INVOCATIONS` (default 25) — catches flow ping-pong /
     infinite auto-reroute loops that Layer 1 can't see (they span invocations).
