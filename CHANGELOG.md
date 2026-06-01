@@ -7,13 +7,13 @@ date-stamped session entries, no tagged releases yet, everything under
 
 ## [Unreleased]
 
-### 2026-06-01 — Scrub real retailer names (Walmart→Megalomart, Target→Bullseye)
+### 2026-06-01 — Scrub real retailer names (Walmart→Megalomart, Target→Bullseye, Kroger→Greenfield)
 
 - Replaced real retailer names with fictional ones across source, docs,
   snapshots, briefings, and local trace files: `Walmart`→`Megalomart`,
-  `Target`→`Bullseye`, plus ID abbreviations `WMT`→`MGM`, `TGT`→`BUL`
-  (e.g. `COM-TGT-SEC-Q2`→`COM-BUL-SEC-Q2`, `PROMO-WMT-FLAG-2026Q2`→
-  `PROMO-MGM-FLAG-2026Q2`).
+  `Target`→`Bullseye`, `Kroger`→`Greenfield`, plus ID abbreviations
+  `WMT`→`MGM`, `TGT`→`BUL`, `KRG`→`GRN` (e.g. `COM-TGT-SEC-Q2`→`COM-BUL-SEC-Q2`,
+  `COM-KRG-SEC-Q2`→`COM-GRN-SEC-Q2`, `PROMO-WMT-FLAG-2026Q2`→`PROMO-MGM-FLAG-2026Q2`).
 - **Surgical on `Target`** to avoid the code minefield: `target_role`,
   the `to_state` "Target state name", and the "Target role for …" prompt hints
   are all *not* the retailer and were preserved (case-sensitive rules + per-file

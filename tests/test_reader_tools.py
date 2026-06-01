@@ -63,9 +63,9 @@ def test_query_commitments_in_window_filters_by_sku_and_window(world_state, vali
     )
     assert res.output is not None
     ids = {c["commitment_id"] for c in res.output["commitments"]}
-    # The at-risk Bullseye commitment (mabd 130) and the Kroger one (mabd 132)
+    # The at-risk Bullseye commitment (mabd 130) and the Greenfield one (mabd 132)
     # fall in-window; nothing for other SKUs leaks in.
-    assert ids == {"COM-BUL-SEC-Q2", "COM-KRG-SEC-Q2"}
+    assert ids == {"COM-BUL-SEC-Q2", "COM-GRN-SEC-Q2"}
     assert validator.validate("CommitmentQueryResult", res.output).ok
 
 
