@@ -78,7 +78,7 @@ _PROMO_DEMAND_PLANNING = [
                 "sku": "TP-FLAG-6OZ",
                 "volume": 1200,
                 "required_by": 146,
-                "source_signal_ref": "PROMO-WMT-FLAG-2026Q2",
+                "source_signal_ref": "PROMO-MGM-FLAG-2026Q2",
             },
         },
     ),
@@ -114,7 +114,7 @@ _PROMO_PRODUCTION_PLANNING = [
     ScriptedToolCall(tool="read_ontology", kwargs={"query": "axioms_on_flow:request_production"}),
 ]
 
-# Phase 4 — capacity conflict (Scene 4). Same Walmart 3x promo ingress; this
+# Phase 4 — capacity conflict (Scene 4). Same Megalomart 3x promo ingress; this
 # time supply_planning sizes the ProductionRequest to the full uplift (3000
 # incremental units on NJ-L1 for week 140). NJ-L1 already carries 3500/5000 in
 # that window, so scheduled 3500 + requested 3000 = 6500 > 5000 — the blocking
@@ -134,7 +134,7 @@ _CONFLICT_DEMAND_PLANNING = [
                 "sku": "TP-FLAG-6OZ",
                 "volume": 3000,
                 "required_by": 146,
-                "source_signal_ref": "PROMO-WMT-FLAG-2026Q2",
+                "source_signal_ref": "PROMO-MGM-FLAG-2026Q2",
             },
         },
     ),
@@ -211,11 +211,11 @@ def _capres_escalate_script(
         # 3. Context assembly — the three declared query flows (wait_all join).
         ScriptedToolCall(
             tool="query",
-            kwargs={"flow": "check_otif_exposure", "query_quantum": {"sku": "TP-SEC-6OZ", "retailer": "TARGET", "proposed_delay_days": 3}},
+            kwargs={"flow": "check_otif_exposure", "query_quantum": {"sku": "TP-SEC-6OZ", "retailer": "BULLSEYE", "proposed_delay_days": 3}},
         ),
         ScriptedToolCall(
             tool="query",
-            kwargs={"flow": "check_promo_flexibility", "query_quantum": {"promo_id": "PROMO-WMT-FLAG-2026Q2", "proposed_change_kind": "shift_timing"}},
+            kwargs={"flow": "check_promo_flexibility", "query_quantum": {"promo_id": "PROMO-MGM-FLAG-2026Q2", "proposed_change_kind": "shift_timing"}},
         ),
         ScriptedToolCall(
             tool="query",
@@ -226,7 +226,7 @@ def _capres_escalate_script(
             tool="surface_decision",
             kwargs={
                 "playbook": "resolve_capacity_conflict",
-                "context": {"shortfall_units": 1500, "at_risk_commitment": "COM-TGT-SEC-Q2"},
+                "context": {"shortfall_units": 1500, "at_risk_commitment": "COM-BUL-SEC-Q2"},
                 "options": ["re_request_production", "request_promo_revision", "shift_to_coman"],
             },
         ),
@@ -245,7 +245,7 @@ def _capres_escalate_script(
                     "sku": "TP-FLAG-6OZ",
                     "volume": 3000,
                     "required_by": 146,
-                    "source_signal_ref": "PROMO-WMT-FLAG-2026Q2",
+                    "source_signal_ref": "PROMO-MGM-FLAG-2026Q2",
                 },
             },
         ),
@@ -273,7 +273,7 @@ _REREQUEST_QUANTUM = {
 #   request_promo_revision: hand a revised TradePromotion (2x not 3x) back across
 #   the boundary to customer_development for renegotiation. Skeletal/boundary path.
 _PROMO_REVISION_QUANTUM = {
-    "promo_id": "PROMO-WMT-FLAG-2026Q2", "sku": "TP-FLAG-6OZ", "retailer": "WALMART",
+    "promo_id": "PROMO-MGM-FLAG-2026Q2", "sku": "TP-FLAG-6OZ", "retailer": "MEGALOMART",
     "volume_uplift_factor": 2.0, "promo_start_day": 142, "promo_end_day": 156,
     "commitment_status": "aligned",
 }
@@ -311,7 +311,7 @@ _CAPRES_LOGISTICS = {
         ScriptedToolCall(
             tool="respond_to_query",
             kwargs={"response": {
-                "retailer": "TARGET", "sku": "TP-SEC-6OZ", "delay_days": 3,
+                "retailer": "BULLSEYE", "sku": "TP-SEC-6OZ", "delay_days": 3,
                 "affected_shipment_value": 240000, "calculated_penalty": 7200,
             }},
         ),
@@ -322,9 +322,9 @@ _CAPRES_CUSTOMER_DEV = {
         ScriptedToolCall(
             tool="respond_to_query",
             kwargs={"response": {
-                "promo_id": "PROMO-WMT-FLAG-2026Q2", "commitment_status": "aligned",
+                "promo_id": "PROMO-MGM-FLAG-2026Q2", "commitment_status": "aligned",
                 "can_shift_timing": True, "can_reduce_volume": True,
-                "notes": "Walmart promo still aligned (not committed); timing shift negotiable.",
+                "notes": "Megalomart promo still aligned (not committed); timing shift negotiable.",
             }},
         ),
     ],
@@ -377,7 +377,7 @@ _ANOMALY_DEMAND_PLANNING = [
 async def inject_capacity_conflict(orch: Orchestrator) -> DispatchResult:
     """Seed Scene 5: route a CapacityConflict to supply_planning. The payload
     mirrors what the Phase 4 capacity axiom tool builds (NJ-L1 over capacity in
-    the promo window, Target's TP-SEC-6OZ commitment at risk)."""
+    the promo window, Bullseye's TP-SEC-6OZ commitment at risk)."""
     return await orch.dispatch_boundary_ingress(
         "escalate_capacity_conflict",
         {
@@ -385,7 +385,7 @@ async def inject_capacity_conflict(orch: Orchestrator) -> DispatchResult:
             "line_ref": "NJ-L1",
             "competing_skus": ["TP-FLAG-6OZ", "TP-SEC-6OZ"],
             "shortfall_units": 1500,
-            "at_risk_commitments": ["COM-TGT-SEC-Q2"],
+            "at_risk_commitments": ["COM-BUL-SEC-Q2"],
             "window_start_day": 140,
             "window_end_day": 146,
         },

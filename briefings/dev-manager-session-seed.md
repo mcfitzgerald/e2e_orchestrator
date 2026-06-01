@@ -36,7 +36,7 @@ The thesis (four claims from `agent_system_design.md §1`):
    state, evaluates axioms, but knows zero domain semantics.
 
 The proof point is the **promo whiplash demo** (`demo_narrative.md`): a
-Walmart BOGO promo on a flagship SKU collides with a Target replenishment
+Megalomart BOGO promo on a flagship SKU collides with a Bullseye replenishment
 commitment on a shared line. Six scenes, increasing in agency complexity.
 Scene 5 (cross-domain context assembly with irreducible LLM judgment) is the
 load-bearing demo moment.

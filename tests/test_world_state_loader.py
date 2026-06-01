@@ -70,7 +70,7 @@ def test_line_load_is_weekly_grained(world_state: WorldState):
 
 def test_commitments_for_skus_generic_filter(world_state: WorldState):
     ids = {c.commitment_id for c in world_state.commitments_for_skus(["TP-SEC-6OZ"])}
-    assert ids == {"COM-TGT-SEC-Q2", "COM-KRG-SEC-Q2"}
+    assert ids == {"COM-BUL-SEC-Q2", "COM-KRG-SEC-Q2"}
 
 
 def test_strict_validation_rejects_bad_instance(ontology_service, tmp_path):

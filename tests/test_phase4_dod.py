@@ -7,7 +7,7 @@ The DoD (ontology repo `plan_of_attack.md` §4):
   `line_capacity_not_exceeded`. The trace shows the deterministic evaluation
   outcome as a non-LLM event.
 
-Scene 4, end-to-end: a Walmart 3x promo enters; demand_planning revises and
+Scene 4, end-to-end: a Megalomart 3x promo enters; demand_planning revises and
 hands a SupplyRequest to supply_planning; supply_planning assigns the full
 uplift (3000 units) to NJ-L1, which already carries 3500/5000 in the window.
 The blocking `line_capacity_not_exceeded` axiom fires deterministically and the

@@ -63,19 +63,19 @@ def test_query_commitments_in_window_filters_by_sku_and_window(world_state, vali
     )
     assert res.output is not None
     ids = {c["commitment_id"] for c in res.output["commitments"]}
-    # The at-risk Target commitment (mabd 130) and the Kroger one (mabd 132)
+    # The at-risk Bullseye commitment (mabd 130) and the Kroger one (mabd 132)
     # fall in-window; nothing for other SKUs leaks in.
-    assert ids == {"COM-TGT-SEC-Q2", "COM-KRG-SEC-Q2"}
+    assert ids == {"COM-BUL-SEC-Q2", "COM-KRG-SEC-Q2"}
     assert validator.validate("CommitmentQueryResult", res.output).ok
 
 
 def test_query_commitments_retailer_filter(world_state):
     res = reader_tools.query_commitments_in_window(
-        {"sku": "TP-SEC-6OZ", "retailer": "TARGET", "window_start_day": 125, "window_end_day": 145},
+        {"sku": "TP-SEC-6OZ", "retailer": "BULLSEYE", "window_start_day": 125, "window_end_day": 145},
         world_state,
     )
     ids = {c["commitment_id"] for c in res.output["commitments"]}
-    assert ids == {"COM-TGT-SEC-Q2"}
+    assert ids == {"COM-BUL-SEC-Q2"}
 
 
 def test_query_supplier_for_sku_is_honest_grounding_miss(world_state):

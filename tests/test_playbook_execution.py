@@ -154,9 +154,9 @@ async def test_wait_all_gate_blocks_then_recovers(ontology_service):
     script = {
         "escalate_capacity_conflict": [
             q("check_coman_availability", {"sku": "TP-FLAG-6OZ", "volume": 1500, "window_start_day": 140, "window_end_day": 146}),
-            q("check_otif_exposure", {"sku": "TP-SEC-6OZ", "retailer": "TARGET", "proposed_delay_days": 3}),
+            q("check_otif_exposure", {"sku": "TP-SEC-6OZ", "retailer": "BULLSEYE", "proposed_delay_days": 3}),
             decide,  # only 2 of 3 fired → gated
-            q("check_promo_flexibility", {"promo_id": "PROMO-WMT-FLAG-2026Q2", "proposed_change_kind": "shift_timing"}),
+            q("check_promo_flexibility", {"promo_id": "PROMO-MGM-FLAG-2026Q2", "proposed_change_kind": "shift_timing"}),
             decide,  # now all three → surfaces
         ],
     }

@@ -144,7 +144,7 @@ Run Scene 4:
 uv run e2e-orchestrator --scenario capacity-conflict --mode stub
 ```
 
-The Walmart 3x promo enters; `supply_planning` assigns the full uplift (3000
+The Megalomart 3x promo enters; `supply_planning` assigns the full uplift (3000
 units) to NJ-L1, which already carries 3500/5000 in the window. The orchestrator
 evaluates `line_capacity_not_exceeded` against world state
 (`sum_scheduled_units + volume <= rated_weekly_capacity`), the blocking axiom

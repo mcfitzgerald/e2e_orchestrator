@@ -77,7 +77,7 @@ Both runs reached a clean terminal state: a validated `decision_surfaced`,
 2. **Agency is real and tracks evidence.** Run A weighed a $1,275 co-man premium
    against a $7,200 OTIF penalty and shifted to co-man. Run B faced a *much*
    larger co-man premium ($36,975, because the order was far larger — see §5) and
-   chose to renegotiate the still-`aligned` Walmart promo instead. Different
+   chose to renegotiate the still-`aligned` Megalomart promo instead. Different
    evidence, different rational choice — exactly the irreducible-judgment the
    architecture is supposed to preserve.
 
@@ -100,8 +100,8 @@ Both runs read **healthy + grounded**:
 - **No menu-picking (✓):** the resolver weighed **all three** paths with
   quantified trade-offs before choosing, in both runs.
 - **Grounded entity references (✓):** every plant/line/SKU/commitment/promo cited
-  is real (`NJ-L1`, `TP-FLAG-6OZ`, `TP-SEC-6OZ`, `PROMO-WMT-FLAG-2026Q2`,
-  `conf-…`, Target/Walmart). No invented entities.
+  is real (`NJ-L1`, `TP-FLAG-6OZ`, `TP-SEC-6OZ`, `PROMO-MGM-FLAG-2026Q2`,
+  `conf-…`, Bullseye/Megalomart). No invented entities.
 - **One caveat — ungrounded *quantity* (see §5):** the order *volume* was not
   grounded. This is a new variant of the hallucinated-grounding pattern: not a
   fake entity, but a number with no readable anchor.

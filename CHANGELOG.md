@@ -7,6 +7,18 @@ date-stamped session entries, no tagged releases yet, everything under
 
 ## [Unreleased]
 
+### 2026-06-01 — Scrub real retailer names (Walmart→Megalomart, Target→Bullseye)
+
+- Replaced real retailer names with fictional ones across source, docs,
+  snapshots, briefings, and local trace files: `Walmart`→`Megalomart`,
+  `Target`→`Bullseye`, plus ID abbreviations `WMT`→`MGM`, `TGT`→`BUL`
+  (e.g. `COM-TGT-SEC-Q2`→`COM-BUL-SEC-Q2`, `PROMO-WMT-FLAG-2026Q2`→
+  `PROMO-MGM-FLAG-2026Q2`).
+- **Surgical on `Target`** to avoid the code minefield: `target_role`,
+  the `to_state` "Target state name", and the "Target role for …" prompt hints
+  are all *not* the retailer and were preserved (case-sensitive rules + per-file
+  review). 72 tests green; orchestrator source verified clean.
+
 ### 2026-05-31 — Phase 6: resolution paths + full narrative + trace renderer/replay (Scene 6)
 
 The demo is whole. One command runs the whole promo-whiplash story end-to-end,
@@ -88,7 +100,7 @@ the trace tells it, and the narrative doc and the trace agree.
     12 invocations, 594,290 tokens (303,843 ≈ 51% cached; output 3,539), no guard,
     0 rejected, `wait_all` satisfied, resolution **`request_promo_revision`**. The
     live agent weighed a **$36,975** co-man premium (43,500 × $0.85) vs the
-    **$7,200** OTIF penalty vs renegotiating the still-`aligned` Walmart promo, and
+    **$7,200** OTIF penalty vs renegotiating the still-`aligned` Megalomart promo, and
     chose to renegotiate — a *different* path than Run A.
   - **The §10/§6 "chosen path materially differs across runs" criterion is met
     LIVE**, and **two of the three resolution paths are exercised live**
@@ -181,9 +193,9 @@ the trace tells it, and the narrative doc and the trace agree.
   resolution `shift_to_coman`, `plan_fulfillment` fired). **First time the
   project has run on a Gemini 3.x model at all.** Agency surface **healthy +
   grounded** per the CLAUDE.md heuristic — real entities via reader tools
-  (`NJ-L1`, `TP-FLAG-6OZ`, `COM-TGT-SEC-Q2`), operational stance, genuine
+  (`NJ-L1`, `TP-FLAG-6OZ`, `COM-BUL-SEC-Q2`), operational stance, genuine
   OTIF-vs-co-man trade-off reasoning; it even adapted reader-tool queries
-  (`TGT` vs `Target`) rather than hallucinating. Traces:
+  (`BUL` vs `Bullseye`) rather than hallucinating. Traces:
   `runs/local-3.5-global.jsonl`, `runs/local-3.5-capres.jsonl`.
 - **`gemini-3.5-flash` requires `GOOGLE_CLOUD_LOCATION=global`** on this project
   (404s on `us-east4`). Newer GA models land on the global endpoint first.
@@ -297,7 +309,7 @@ the trace tells it, and the narrative doc and the trace agree.
   2026-05-31 entry]**): supply_planning reads the playbook, fans out the
   context-assembly queries, surfaces a **validated** decision, picks one
   resolution, fires always_fires. **Hallucinated-grounding is gone** — both
-  entity refs (NJ-L1, COM-TGT-SEC-Q2, inferred TP-SEC-6OZ/Target) and the
+  entity refs (NJ-L1, COM-BUL-SEC-Q2, inferred TP-SEC-6OZ/Bullseye) and the
   playbook ref are real and validated; the reasoning weighs the advisory criteria
   and cites system mechanics (healthy agency surface per CLAUDE.md). **Judgment
   tracks evidence**: with degraded boundary-stub evidence the agent chose
@@ -466,7 +478,7 @@ the trace tells it, and the narrative doc and the trace agree.
   recovery quantum, so the run halts at the gate and the gap is visible in the
   trace rather than hidden.
 - **`capacity-conflict` scenario (Scene 4).** `--scenario capacity-conflict`:
-  the Walmart 3x promo, with supply_planning assigning the full uplift (3000
+  the Megalomart 3x promo, with supply_planning assigning the full uplift (3000
   units) to NJ-L1 — which already carries 3500/5000 in the window. `3500 + 3000
   = 6500 > 5000` → the blocking `line_capacity_not_exceeded` axiom fires and the
   orchestrator routes `escalate_capacity_conflict` (production_planning →
@@ -526,7 +538,7 @@ the trace tells it, and the narrative doc and the trace agree.
   proof that the generic-agent thesis generalizes past one role.
 - **Second boundary seeder.** `boundary/customer_development.py`
   (`emit_promo_plan_aligned`) — symmetric to `demand_sensing`. Constructs an
-  aligned `TradePromotion` (BOGO on Product A at Walmart, 3x lift, 2-week window
+  aligned `TradePromotion` (BOGO on Product A at Megalomart, 3x lift, 2-week window
   ~6 weeks out, `commitment_status: aligned`) and dispatches the
   `submit_promo_plan` ingress flow into `demand_planning`. No LLM inside the
   boundary role.

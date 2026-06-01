@@ -14,7 +14,7 @@ ontology owns structure. World state for the POC is a YAML fixture
 
 Queries are **generic over typed entities** — `find(class, **slots)` plus thin
 typed wrappers. There is deliberately no per-instance / per-domain accessor
-(`get_promo_for_walmart`, etc.); that is the Phase 4 stop condition. The axiom
+(`get_promo_for_megalomart`, etc.); that is the Phase 4 stop condition. The axiom
 tools (`application/axiom_tools.py`) compose these primitives; the world model
 stays domain-agnostic here.
 """
