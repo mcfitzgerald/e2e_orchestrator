@@ -171,23 +171,32 @@ _CONFLICT_SUPPLY_PLANNING = {
     ],
 }
 
-# Phase 5 — Scene 5 capacity resolution (the load-bearing demo moment). Same
-# 3000-unit conflict ingress as `capacity-conflict`; this time supply_planning's
-# `escalate_capacity_conflict` re-entry runs the `resolve_capacity_conflict`
-# Playbook instead of merely acknowledging. It reads the playbook, grounds a real
-# (plant, line) via reader tools, fans out the three context-assembly queries
-# (wait_all is a join — sequential await suffices), surfaces the decision, picks
-# ONE resolution (here shift_to_coman, per demo_narrative Scene 6), then fires the
-# playbook's always_fires effects (capacity_resolved event + plan_fulfillment).
-# In `--mode llm` the resolution is the LLM's to make and may differ per seed —
-# that contrast is the Phase 5 DoD. The script encodes ONE deterministic path so
-# the stub trace is reproducible.
-_CAPRES_SUPPLY_PLANNING = {
-    # Scene 4 ingress (unchanged): assign full uplift to NJ-L1 → overflows → the
-    # capacity axiom blocks and the orchestrator reroutes escalate_capacity_conflict.
-    "submit_supply_request": _CONFLICT_SUPPLY_PLANNING["submit_supply_request"],
-    # Scene 5: the Playbook executes here.
-    "escalate_capacity_conflict": [
+# Phase 5/6 — Scene 5 context assembly + Scene 6 resolution. Same 3000-unit
+# conflict as `capacity-conflict`; supply_planning's `escalate_capacity_conflict`
+# re-entry runs the `resolve_capacity_conflict` Playbook: read the playbook,
+# ground a real (plant, line) via reader tools, fan out the three context-assembly
+# queries (wait_all join), surface the decision, pick ONE resolution, then fire
+# the playbook's always_fires effects (capacity_resolved + plan_fulfillment).
+#
+# The choice among the three resolution paths is the agent's judgment. In
+# `--mode llm` it's the LLM's to make and may differ per seed (the Phase 5 DoD);
+# in stub it's scripted. The context-assembly prefix (steps 1-4) is IDENTICAL
+# across all three resolutions — only the resolution handoff (step 5) differs —
+# so the same-queries / different-resolution contrast is structural, not
+# per-path code. `_capres_escalate_script` builds the script for any resolution.
+
+
+def _capres_escalate_script(
+    resolution_flow: str,
+    resolution_quantum: dict,
+) -> list[ScriptedToolCall]:
+    """Build supply_planning's `escalate_capacity_conflict` script for a chosen
+    resolution. Steps 1-4 (playbook read, reader-tool grounding, the three
+    context-assembly queries, the surfaced decision) are the same for every
+    resolution; only the resolution handoff (step 5) varies. always_fires
+    (capacity_resolved + plan_fulfillment, step 6) is invariant — it fires on
+    every path, which is what drives re-convergence to the happy path."""
+    return [
         # 1. First action on screen — read the playbook anchored to me (§10 proof).
         ScriptedToolCall(tool="read_ontology", kwargs={"query": "playbook:resolve_capacity_conflict"}),
         # 2. Ground a real (plant, line, window) instead of inventing one.
@@ -221,26 +230,12 @@ _CAPRES_SUPPLY_PLANNING = {
                 "options": ["re_request_production", "request_promo_revision", "shift_to_coman"],
             },
         ),
-        # 5. Pick ONE resolution path (judgment — scripted here as shift_to_coman).
-        ScriptedToolCall(
-            tool="handoff",
-            kwargs={
-                "flow": "shift_to_coman",
-                "quantum": {
-                    "request_id": "pr-coman-capres",
-                    "sku": "TP-FLAG-6OZ",
-                    "volume": 1500,
-                    "window_start_day": 140,
-                    "window_end_day": 146,
-                    "assigned_plant": "COMAN-1",
-                    "assigned_line": "COMAN-1-L1",
-                    "status": "assigned",
-                },
-            },
-        ),
+        # 5. Pick ONE resolution path (judgment — scripted here per scenario).
+        ScriptedToolCall(tool="handoff", kwargs={"flow": resolution_flow, "quantum": resolution_quantum}),
         # 6. always_fires — agent-driven (the orchestrator has no event→flow
         #    trigger; firing these is the agent following the playbook, §2-safe).
-        ScriptedToolCall(tool="emit_event", kwargs={"name": "capacity_resolved", "payload": {"sku": "TP-FLAG-6OZ", "resolution": "shift_to_coman"}}),
+        #    Fires on EVERY resolution path → drives re-convergence to happy path.
+        ScriptedToolCall(tool="emit_event", kwargs={"name": "capacity_resolved", "payload": {"sku": "TP-FLAG-6OZ", "resolution": resolution_flow}}),
         ScriptedToolCall(
             tool="handoff",
             kwargs={
@@ -254,6 +249,56 @@ _CAPRES_SUPPLY_PLANNING = {
                 },
             },
         ),
+    ]
+
+
+# Scene 6 resolution quanta — one per path.
+#   shift_to_coman: external co-man absorbs the volume (demo_narrative Scene 6).
+_COMAN_QUANTUM = {
+    "request_id": "pr-coman-capres", "sku": "TP-FLAG-6OZ", "volume": 1500,
+    "window_start_day": 140, "window_end_day": 146,
+    "assigned_plant": "COMAN-1", "assigned_line": "COMAN-1-L1", "status": "assigned",
+}
+#   re_request_production: internal re-entry with a REVISED ProductionRequest.
+#   Same line (NJ-L1), volume reduced to the headroom (3500 scheduled + 1500 =
+#   5000 = rated capacity) so the line_capacity_not_exceeded guard now PASSES at
+#   production_planning's requested→assigned transition. This is the narrative's
+#   "request_production re-evaluated, axiom now passes" — the deterministic floor
+#   ACCEPTING the corrected plan, the mirror image of Scene 4 blocking the bad one.
+_REREQUEST_QUANTUM = {
+    "request_id": "pr-rerequest-capres", "sku": "TP-FLAG-6OZ", "volume": 1500,
+    "window_start_day": 140, "window_end_day": 146,
+    "assigned_plant": "PLANT-NJ", "assigned_line": "NJ-L1", "status": "requested",
+}
+#   request_promo_revision: hand a revised TradePromotion (2x not 3x) back across
+#   the boundary to customer_development for renegotiation. Skeletal/boundary path.
+_PROMO_REVISION_QUANTUM = {
+    "promo_id": "PROMO-WMT-FLAG-2026Q2", "sku": "TP-FLAG-6OZ", "retailer": "WALMART",
+    "volume_uplift_factor": 2.0, "promo_start_day": 142, "promo_end_day": 156,
+    "commitment_status": "aligned",
+}
+
+_CAPRES_SUPPLY_PLANNING = {
+    # Scene 4 ingress (unchanged): assign full uplift to NJ-L1 → overflows → the
+    # capacity axiom blocks and the orchestrator reroutes escalate_capacity_conflict.
+    "submit_supply_request": _CONFLICT_SUPPLY_PLANNING["submit_supply_request"],
+    # Scene 5+6: the Playbook executes here, picking shift_to_coman.
+    "escalate_capacity_conflict": _capres_escalate_script("shift_to_coman", _COMAN_QUANTUM),
+}
+
+# Production_planning, resolution variant. On the internal-resolution path
+# (re_request_production) it receives a REVISED ProductionRequest and advances
+# ProductionRequestLifecycle requested→assigned. The `assign` transition's guard
+# is the same blocking `line_capacity_not_exceeded` axiom that fired in Scene 4 —
+# here it is re-evaluated against the corrected quantum and PASSES, so the FSM
+# advances (FSM_TRANSITIONED, guard_passed=True). The deterministic floor accepts
+# the corrected plan. (quantum_id is the runtime handle the orchestrator stamps;
+# advance_fsm defaults it to the quantum in hand, so the script doesn't name it.)
+_RESOLUTION_PRODUCTION_PLANNING = {
+    "re_request_production": [
+        ScriptedToolCall(tool="read_ontology", kwargs={"query": "my_view"}),
+        ScriptedToolCall(tool="read_ontology", kwargs={"query": "axioms_on_flow:request_production"}),
+        ScriptedToolCall(tool="advance_fsm", kwargs={"fsm": "ProductionRequestLifecycle", "trigger": "assign"}),
     ],
 }
 
@@ -388,6 +433,63 @@ SCENARIOS: dict[str, dict] = {
             "co_manufacturing": _CAPRES_COMAN,
         },
     },
+    # Phase 6 — the other two resolution paths, same injected conflict + identical
+    # context assembly as `capacity-resolution`, only the chosen resolution differs.
+    # CLI access to each path so a human can run all three; the structural proof
+    # (same queries, different resolution) lives in test_phase6_dod.py.
+    "resolution-internal": {
+        "seeder": inject_capacity_conflict,
+        "scripts": {
+            "supply_planning": {
+                "submit_supply_request": _CONFLICT_SUPPLY_PLANNING["submit_supply_request"],
+                "escalate_capacity_conflict": _capres_escalate_script("re_request_production", _REREQUEST_QUANTUM),
+            },
+            "production_planning": _RESOLUTION_PRODUCTION_PLANNING,
+        },
+        "responders": {
+            "logistics_planning": _CAPRES_LOGISTICS,
+            "customer_development": _CAPRES_CUSTOMER_DEV,
+            "co_manufacturing": _CAPRES_COMAN,
+        },
+    },
+    "resolution-promo": {
+        "seeder": inject_capacity_conflict,
+        "scripts": {
+            "supply_planning": {
+                "submit_supply_request": _CONFLICT_SUPPLY_PLANNING["submit_supply_request"],
+                "escalate_capacity_conflict": _capres_escalate_script("request_promo_revision", _PROMO_REVISION_QUANTUM),
+            },
+        },
+        "responders": {
+            "logistics_planning": _CAPRES_LOGISTICS,
+            "customer_development": _CAPRES_CUSTOMER_DEV,
+            "co_manufacturing": _CAPRES_COMAN,
+        },
+    },
+    # Phase 6 — the full promo-whiplash narrative from ONE seed: Scenes 1-6.
+    # In stub mode the conflict is DERIVED honestly: demand_planning hands a
+    # full-uplift SupplyRequest to supply_planning, which assigns 3000 to NJ-L1;
+    # the line_capacity_not_exceeded axiom fires (Scene 4) and the orchestrator
+    # auto-reroutes escalate_capacity_conflict; supply_planning then runs the
+    # playbook (Scene 5) and picks shift_to_coman (Scene 6); plan_fulfillment
+    # re-converges on the happy path. No injection needed in stub — the scripts
+    # are deterministic. (Live `--mode llm` uses --scenario capacity-resolution,
+    # which INJECTS the conflict, because a reader-tool-grounded LLM sizes the
+    # request to fit and dodges a derived conflict — the documented Phase 5
+    # finding. See CHANGELOG.)
+    "full-demo": {
+        "seeder": emit_promo_plan_aligned,
+        "scripts": {
+            "demand_planning": _CONFLICT_DEMAND_PLANNING,
+            "supply_planning": _CAPRES_SUPPLY_PLANNING,
+            "production_planning": _PROMO_PRODUCTION_PLANNING,
+        },
+        "responders": {
+            "logistics_planning": _CAPRES_LOGISTICS,
+            "customer_development": _CAPRES_CUSTOMER_DEV,
+            "co_manufacturing": _CAPRES_COMAN,
+        },
+    },
     "demand-anomaly": {
         "seeder": emit_demand_anomaly,
         "scripts": {
@@ -475,6 +577,7 @@ def cli(argv: list[str] | None = None) -> int:
     parser.add_argument("--mode", choices=("llm", "stub"), default=None, help="'llm' uses ADK (default); 'stub' runs without an LLM.")
     parser.add_argument("--ontology", type=Path, default=None, help="Override the supply_chain_demo.yaml path.")
     parser.add_argument("--print-events", action="store_true", help="Print every event to stdout after the run.")
+    parser.add_argument("--narrate", action="store_true", help="Print the readable Scene 1→6 trace narrative after the run.")
     args = parser.parse_args(argv)
 
     log_path = args.log or _default_log_path(args.scenario)
@@ -482,7 +585,11 @@ def cli(argv: list[str] | None = None) -> int:
     summary = asyncio.run(
         run_scenario(args.scenario, log_path=log_path, mode=mode, ontology_yaml=args.ontology)
     )
-    print(json.dumps(summary, indent=2))
+    if args.narrate and log_path.exists():
+        from .narrative import render_trace_file
+        print(render_trace_file(log_path))
+    else:
+        print(json.dumps(summary, indent=2))
     if args.print_events and log_path.exists():
         print("---")
         with log_path.open() as fh:

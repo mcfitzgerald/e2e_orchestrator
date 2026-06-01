@@ -20,6 +20,8 @@ dev = [
 
 [project.scripts]
 e2e-orchestrator = "e2e_orchestrator.runtime.main:cli"
+e2e-narrate = "e2e_orchestrator.runtime.narrative:cli"
+e2e-replay = "e2e_orchestrator.runtime.replay:cli"
 
 [build-system]
 requires = ["hatchling"]

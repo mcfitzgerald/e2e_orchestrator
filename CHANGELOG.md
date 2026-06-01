@@ -7,6 +7,116 @@ date-stamped session entries, no tagged releases yet, everything under
 
 ## [Unreleased]
 
+### 2026-05-31 — Phase 6: resolution paths + full narrative + trace renderer/replay (Scene 6)
+
+The demo is whole. One command runs the whole promo-whiplash story end-to-end,
+the trace tells it, and the narrative doc and the trace agree.
+
+- **The two remaining resolution paths land (the third, `shift_to_coman`, was
+  Phase 5).** All three are ontology flows; the choice stays the agent's
+  judgment, with **no per-role/per-path code** in the orchestrator or the seven
+  tools.
+  - **`re_request_production`** — internal re-entry with a *revised*
+    `ProductionRequest` (same line NJ-L1, volume cut to the 1500 headroom). At
+    production_planning the `requested→assigned` FSM transition re-evaluates the
+    **same** blocking `line_capacity_not_exceeded` axiom that fired in Scene 4 —
+    and it now **passes** (`3500 + 1500 = 5000 ≤ 5000`, `guard_passed: True`).
+    The deterministic floor *accepting* the corrected plan, the mirror image of
+    Scene 4 blocking the bad one. `--scenario resolution-internal`.
+  - **`request_promo_revision`** — a revised `TradePromotion` (2x not 3x) handed
+    back across the boundary to customer_development (skeletal/boundary).
+    `--scenario resolution-promo`.
+  - Refactor: `_capres_escalate_script(resolution_flow, quantum)` builds
+    supply_planning's escalate handler for any resolution — steps 1–4 (playbook
+    read, reader-tool grounding, the three context-assembly queries, the surfaced
+    decision) and step 6 (always_fires) are identical across all three; only the
+    resolution handoff varies. Same-queries / different-resolution is structural,
+    not branching.
+- **`full-demo` scenario — the whole narrative from ONE seed (Scenes 1→6).** In
+  **stub** mode the conflict is **derived honestly**, no injection: demand_planning
+  hands a full-uplift SupplyRequest to supply_planning, which assigns 3000 to
+  NJ-L1; the capacity axiom fires (Scene 4) and the orchestrator auto-reroutes
+  `escalate_capacity_conflict`; supply_planning runs the playbook (Scene 5),
+  picks `shift_to_coman` (Scene 6), and `plan_fulfillment` re-converges on the
+  happy path. **Finding for the dev-manager session** (the seed flagged this):
+  deriving-the-conflict-honestly works perfectly *in stub* and is more credible
+  than injection there — so the canonical single-command DoD trace uses
+  derivation. **Injection is still required only for the live `--mode llm` path**
+  (`--scenario capacity-resolution`), because a reader-tool-grounded agent sizes
+  the request to fit and dodges a *derived* conflict — the documented Phase 5
+  grounding win. The split is intentional and now encoded in the scenario set.
+- **`advance_fsm` defaults `quantum_id` to the incoming quantum.** quantum_id is
+  a runtime handle the orchestrator stamps (§2: IDs are runtime, not world-model)
+  and the agent is never told it — so the tool now transitions the quantum in
+  hand when `quantum_id` is omitted. Generic fix that also unblocks real LLM
+  agents calling `advance_fsm` (they couldn't name an id they're never given).
+- **Trace narrative renderer (`runtime/narrative.py`, `e2e-narrate`).** Turns the
+  JSONL log into a readable Scene 1→6 story — reasoning, queries + typed answers,
+  the blocked-axiom floor, the surfaced decision, the resolution, re-convergence,
+  plus a header that reads the stamped `model` and token `usage` straight from
+  the log (the cost story, zero billing lag). **Generic over the event log** (it
+  switches on `EventKind`, not scenario/role names), so it renders any scenario;
+  lose that and we'd have per-narrative code. `--narrate` prints it after a run.
+- **Replay + the determinism guarantee, stated precisely
+  (`runtime/replay.py`, `e2e-replay`).** `structural_signature` is the
+  replay-invariant projection of a trace (routing + axiom verdicts + FSM,
+  with random ids/usage stripped). Same seed + same agent decisions →
+  **identical** signatures: deterministic orchestration replay, guaranteed by the
+  commands→events backbone + stable idempotency keys. **LLM-level replay is NOT
+  guaranteed** — Vertex/Gemini via ADK exposes no seed that makes a tool-using
+  agent bit-reproducible, and Scene 6 *should* vary across runs (that's the
+  agency). What stays invariant even across seeds is the deterministic frame
+  (query set, axiom floor, routing) — exactly what the Phase 5 DoD rests on.
+- **Tests (+6, 66 → 72).** `test_phase6_dod.py`: the full single-seed narrative
+  (Scene 1 ingress → Scene 4 block+reroute → Scene 5 three-query assembly +
+  validated decision → Scene 6 resolution + plan_fulfillment → clean terminal);
+  `re_request_production`'s revised quantum passing the capacity guard;
+  `request_promo_revision` crossing to customer_development; all three paths share
+  identical context assembly; deterministic-replay equality; the renderer agrees
+  with the run. All prior DoD tests unchanged and green.
+- **Verified live on `gemini-3.5-flash` — TWO runs, and they picked DIFFERENT
+  resolutions (irreducible agency, demonstrated live).** Both user-approved billed
+  runs; first re-verification of the resolution arc — and of the Scenes 1–3 chain
+  — on a Gemini 3.x model (Phases 2–5 actually ran on 2.5-flash).
+  - **Run A — `--scenario capacity-resolution`** (Scenes 4–6, injection;
+    `runs/phase6-live-capres-A.jsonl`): 9 invocations, 323,871 tokens (204,504 ≈
+    63% cached; output 2,033), no guard, 0 rejected, `wait_all` satisfied,
+    resolution **`shift_to_coman`** — weighed co-man premium **$1,275** (1500 ×
+    $0.85) vs OTIF penalty **$7,200** and chose co-man.
+  - **Run B — `--scenario full-demo`** (the **most complex example**: the WHOLE
+    Scene 1→6 narrative from ONE promo seed, live; `runs/phase6-live-fulldemo.jsonl`):
+    12 invocations, 594,290 tokens (303,843 ≈ 51% cached; output 3,539), no guard,
+    0 rejected, `wait_all` satisfied, resolution **`request_promo_revision`**. The
+    live agent weighed a **$36,975** co-man premium (43,500 × $0.85) vs the
+    **$7,200** OTIF penalty vs renegotiating the still-`aligned` Walmart promo, and
+    chose to renegotiate — a *different* path than Run A.
+  - **The §10/§6 "chosen path materially differs across runs" criterion is met
+    LIVE**, and **two of the three resolution paths are exercised live**
+    (`shift_to_coman` + `request_promo_revision`; `re_request_production` stays
+    scripted — the seed permits live-or-scripted). This **closes the Phase 5
+    "resolutions converged to shift_to_coman" concern** with direct evidence: the
+    choice tracks the evidence, and when the full narrative lets the agent size the
+    promo and own its renegotiation, it diverges.
+  - **The conflict DERIVED honestly live in Run B** — contrary to my earlier
+    too-strong claim that a grounded agent always dodges a derived conflict.
+    `demand_planning` sized the promo to **45,000 units** (its own demand call,
+    vs the stub's 3000), supply_planning assigned it to NJ-L1, and the
+    deterministic axiom tool computed the real shortfall (48,500 − 5,000 =
+    **43,500**) into the `CapacityConflict`; the agent read that back and did the
+    co-man math correctly. So **live derivation can traverse all six scenes** —
+    injection remains the *reliable* path (Phase 5 saw the dodge), but it is not
+    *required* for a live full run. Agency **healthy + grounded** both runs (real
+    entities only, large numbers all traceable through the floor, operational
+    reasoning, all three paths weighed with quantified trade-offs).
+  - **Guards survive with margin:** the heaviest run (full-demo) used 12 of 25
+    invocations and 0.59M of the 2M token cap. Defaults hold for the full narrative.
+  - **One observation for the ontology session** (not an orchestrator patch, per
+    the stop conditions): the agent fired some context queries **more than once**
+    (Run A: each twice; Run B: `check_otif_exposure`/`check_coman_availability`
+    repeated) — `wait_all` was satisfied and decisions well-grounded, but the
+    redundant re-querying is a mild efficiency/playbook-rendering signal stronger
+    Playbook orientation would tighten.
+
 ### 2026-05-31 — Cut redundant context: `my_view` returns a pointer; capture cached tokens
 
 - **`read_ontology("my_view")` no longer returns the full role view.** That view

@@ -239,26 +239,33 @@ def make_toolkit(orch: Orchestrator, ctx: ToolContext) -> ToolKit:
 
     # ---- 5. advance_fsm ---------------------------------------------------
 
-    def advance_fsm(quantum_id: str, fsm: str, trigger: str) -> dict:
-        """Request a lifecycle transition on a quantum you own. The orchestrator
-        evaluates the guard axiom deterministically; if it passes, the state
-        advances. If the guard is a blocking axiom and fails, the orchestrator
-        follows `on_failure_route_to` instead.
+    def advance_fsm(fsm: str, trigger: str, quantum_id: str = "") -> dict:
+        """Request a lifecycle transition on the quantum currently in your hands.
+        The orchestrator evaluates the guard axiom deterministically; if it
+        passes, the state advances. If the guard is a blocking axiom and fails,
+        the orchestrator follows `on_failure_route_to` instead.
 
         Args:
-            quantum_id: The quantum_id returned by the original ingress/handoff.
-            fsm: Name of the StateMachine.
-            trigger: Name of the trigger event on a declared transition.
+            fsm: Name of the StateMachine (e.g. "ProductionRequestLifecycle").
+            trigger: Name of the trigger event on a declared transition (e.g. "assign").
+            quantum_id: Optional. The runtime quantum_id to transition. Leave it
+                empty — quantum_id is a runtime handle the orchestrator stamps,
+                not part of the world model, so you are not told it. When empty,
+                the orchestrator transitions the quantum that arrived in this
+                invocation (the one whose payload you were handed).
 
         Returns:
             {"status": "transitioned"|"blocked"|"rejected", "from": str, "to": str, "reason": str}
         """
         # The quantum currently in this agent's hands is what the guard is
-        # evaluated against. The orchestrator writes the FSM event(s), evaluates
-        # the guard via the shared deterministic evaluator, and auto-follows the
-        # recovery route on a blocking guard failure.
+        # evaluated against. quantum_id is a runtime handle (§2: IDs are runtime,
+        # not world-model — the agent is never told it), so it defaults to the
+        # incoming quantum's id. The orchestrator writes the FSM event(s),
+        # evaluates the guard via the shared deterministic evaluator, and
+        # auto-follows the recovery route on a blocking guard failure.
+        qid = quantum_id or ctx.incoming_quantum_id or ""
         result_obj = orch.advance_fsm(
-            quantum_id=quantum_id,
+            quantum_id=qid,
             fsm=fsm,
             trigger=trigger,
             quantum=ctx.incoming_payload or {},
@@ -273,7 +280,7 @@ def make_toolkit(orch: Orchestrator, ctx: ToolContext) -> ToolKit:
             "reason": result_obj.reason,
             "rerouted_to": result_obj.recovery_flow,
         }
-        _log_tool_call("advance_fsm", {"quantum_id": quantum_id, "fsm": fsm, "trigger": trigger}, result)
+        _log_tool_call("advance_fsm", {"quantum_id": qid, "fsm": fsm, "trigger": trigger}, result)
         return result
 
     # ---- 6. call_tool -----------------------------------------------------

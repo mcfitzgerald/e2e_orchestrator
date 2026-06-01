@@ -2,10 +2,13 @@
 
 Orchestrator + generic agent runtime for the supply chain ontology developed in
 [`e2e_ontology`](../e2e_ontology). Phase 2 proved the thesis end-to-end for a
-single agent; Phase 3 generalized it to three roles with no per-role code; and
-**Phase 4 puts the deterministic backbone under the agent layer** — real
-world-state-backed axiom evaluation, FSM guards, and automatic recovery routing
-on a blocking constraint, all without an LLM in the routing path.
+single agent; Phase 3 generalized it to three roles with no per-role code; Phase
+4 put the deterministic backbone (world-state axioms, FSM guards, auto-recovery)
+under the agent layer; Phase 5 added Playbook execution + reader tools (Scene 5
+cross-domain context assembly); and **Phase 6 completes the demo** — the three
+resolution paths, the full promo-whiplash narrative from one seed through
+conflict → resolution → re-convergence, and a trace renderer + replay so the log
+tells the Scene 1→6 story.
 
 ## What this repo contains
 
@@ -50,12 +53,13 @@ src/e2e_orchestrator/
   world_state/    fixture loader + generic typed queries (schedule, clock)
   durability/     JSONL event log + in-memory views + asyncio signals
   boundary/       ingress simulators + stub responders
-  runtime/        wires everything; `e2e-orchestrator` CLI entrypoint
-tests/            unit tests + Phase 2/3/4 DoD assertions
+  runtime/        wires everything; CLIs: e2e-orchestrator, e2e-narrate, e2e-replay
+tests/            unit tests + Phase 2/3/4/5/6 DoD assertions
 ```
 
-The sibling `e2e_ontology` repo is surfaced on `sys.path` by
-`src/e2e_orchestrator/_bootstrap.py`. Override via `E2E_ONTOLOGY_PATH`.
+The sibling `e2e_ontology` repo is a declared dependency, installed from a local
+editable checkout (`../e2e_ontology`) via `[tool.uv.sources]` in
+`pyproject.toml`; pin it to a git rev there for a reproducible/CI build.
 
 ## Quick start
 
@@ -66,14 +70,33 @@ uv run e2e-orchestrator --mode stub    # promo whiplash happy path (default scen
 uv run e2e-orchestrator                # same, with a real LLM (needs ADK credentials)
 
 uv run e2e-orchestrator --scenario capacity-conflict --mode stub  # Phase 4 Scene 4 (blocking axiom + recovery)
+uv run e2e-orchestrator --scenario capacity-resolution --mode stub  # Phase 5 Scene 5 (playbook + context assembly)
+uv run e2e-orchestrator --scenario full-demo --mode stub --narrate  # Phase 6 — full Scene 1→6 narrative, rendered
 uv run e2e-orchestrator --scenario demand-anomaly --mode stub     # original Phase 2 round trip
+
+# Render any existing trace into the Scene 1→6 story, or compare two for replay:
+uv run e2e-narrate runs/<scenario>-<ts>.jsonl
+uv run e2e-replay runs/<a>.jsonl runs/<b>.jsonl   # deterministic-orchestration equivalence
 ```
 
-`--scenario` selects the run: `promo` (default — the Phase 3 three-role happy
-path), `capacity-conflict` (Phase 4 Scene 4 — a blocking axiom fires and the
-orchestrator auto-routes the recovery flow), or `demand-anomaly` (the original
-Phase 2 single-role round trip). Each run produces `runs/<scenario>-<ts>.jsonl`
-— the append-only event log. Replay and trace UIs (Phase 8) consume this format.
+`--scenario` selects the run:
+- `promo` (default — the Phase 3 three-role happy path),
+- `capacity-conflict` (Phase 4 Scene 4 — a blocking axiom fires and the
+  orchestrator auto-routes the recovery flow),
+- `capacity-resolution` (Phase 5 Scene 5 — the `resolve_capacity_conflict`
+  playbook runs, three context-assembly queries fan out, a decision is surfaced,
+  `shift_to_coman` is chosen; this is the live `--mode llm` vehicle),
+- `resolution-internal` / `resolution-promo` (Phase 6 — the other two resolution
+  paths: `re_request_production` with a revised quantum that passes the capacity
+  guard, and `request_promo_revision` across the commercial boundary),
+- `full-demo` (Phase 6 — the whole promo-whiplash narrative from ONE promo seed:
+  Scenes 1→6, conflict derived honestly in stub, ending in re-convergence),
+- `demand-anomaly` (the original Phase 2 single-role round trip).
+
+Each run produces `runs/<scenario>-<ts>.jsonl` — the append-only event log.
+`--narrate` prints the readable Scene 1→6 story after the run; `e2e-narrate`
+renders any saved trace; `e2e-replay` confirms two traces share the same
+deterministic orchestration structure. The rich trace UI is Phase 8.
 
 ## Phase 2 definition of done
 
@@ -140,3 +163,71 @@ evaluator (`unknown_entity`) and rejected. Verified live 2026-05-30 — the
 deterministic floor caught the LLM hallucinating a line where Phase 3 silently
 passed it; agency surface stayed healthy, grounding remains the Phase 5
 reader-tool gap. Details in CHANGELOG.
+
+## Phase 5 definition of done
+
+The generic agent reads its anchored Playbook, fans out the **same** three
+context-assembly queries every run (deterministic), and surfaces a validated
+decision — but the resolution it picks is the LLM's judgment and may differ
+across seeds. Run Scene 5:
+
+```
+uv run e2e-orchestrator --scenario capacity-resolution --mode stub
+```
+
+Reader tools (`application/reader_tools.py`) let the agent ground real
+plants/lines/commitments instead of inventing them; `call_tool` validates
+input/output against the declared classes; `surface_decision` rejects an unknown
+playbook ref (`unknown_playbook` floor); and a `wait_all` gate holds the decision
+until every required query has a response. See `tests/test_phase5_dod.py`,
+`tests/test_reader_tools.py`, `tests/test_playbook_execution.py`.
+
+## Phase 6 definition of done
+
+**A single command runs the full promo-whiplash narrative end-to-end; the trace
+tells the Scene 1→6 story; the narrative document and the trace agree.**
+
+```
+uv run e2e-orchestrator --scenario full-demo --mode stub --narrate
+```
+
+From ONE promo seed: the promo enters (Scene 1), the forecast is revised and a
+SupplyRequest flows to supply_planning (Scenes 2–3), the full uplift overflows
+NJ-L1 so the `line_capacity_not_exceeded` floor **blocks** `request_production`
+and the orchestrator auto-reroutes `escalate_capacity_conflict` (Scene 4),
+supply_planning runs the playbook and assembles cross-domain context (Scene 5),
+picks a resolution and fires `plan_fulfillment` so the chain **re-converges**
+(Scene 6). In stub mode the conflict is derived honestly (deterministic scripts). Live
+`--mode llm` can *also* derive it (a verification run did — see below), but
+`--scenario capacity-resolution` *injects* it for a reliable Scenes 4–6 run,
+because a reader-tool-grounded agent sometimes sizes the request to fit and
+dodges a derived conflict (the Phase 5 finding — see CHANGELOG).
+
+All **three** resolution paths are exercised: `shift_to_coman` (external
+boundary), `re_request_production` (internal re-entry — the revised quantum
+**passes** the same capacity guard that blocked the original, via the
+`requested→assigned` FSM transition: the floor *accepting* the corrected plan),
+and `request_promo_revision` (across the commercial boundary). The context-
+assembly query set is identical across all three; only the resolution differs.
+
+`e2e-narrate` renders any trace into the readable story; `e2e-replay` confirms
+deterministic orchestration replay (same seed → identical structural trace,
+modulo random ids — the LLM step itself is not bit-reproducible, by design). See
+`tests/test_phase6_dod.py`.
+
+Verified live 2026-05-31 on `gemini-3.5-flash`, **two runs that picked different
+resolutions** (irreducible agency, live):
+- `capacity-resolution` (Scenes 4–6, injection): 9 invocations, 323,871 tokens
+  (204,504 ≈ 63% cached), `shift_to_coman` — co-man premium $1,275 < OTIF $7,200.
+  Trace `runs/phase6-live-capres-A.jsonl`.
+- `full-demo` (the **whole Scene 1→6 narrative from one seed**, conflict derived
+  honestly live): 12 invocations, 594,290 tokens (303,843 ≈ 51% cached),
+  `request_promo_revision` — chose to renegotiate the still-`aligned` promo over a
+  $36,975 co-man premium. Trace `runs/phase6-live-fulldemo.jsonl`.
+
+Both runs: no guard tripped, zero rejections, `wait_all` satisfied, agency
+**healthy + grounded** (real entities only; large numbers all traceable through
+the deterministic floor). First re-verification of the resolution arc — and of
+Scenes 1–3 — on a Gemini 3.x model, and the §10 "path materially differs across
+runs" criterion met live. Guards survive the full narrative with margin (12/25
+invocations, 0.59M/2M tokens).
