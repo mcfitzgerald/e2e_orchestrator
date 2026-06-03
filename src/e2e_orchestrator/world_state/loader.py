@@ -44,6 +44,7 @@ INSTANCE_COLLECTIONS: dict[str, str] = {
     "suppliers": "Supplier",
     "retailer_commitments": "RetailerCommitment",
     "trade_promotions": "TradePromotion",
+    "baseline_demand": "BaselineDemand",
 }
 
 

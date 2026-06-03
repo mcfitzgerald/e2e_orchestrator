@@ -7,6 +7,58 @@ date-stamped session entries, no tagged releases yet, everything under
 
 ## [Unreleased]
 
+### 2026-06-02 — Seed A: baseline-demand grounding (consumes the ontology contract)
+
+Closes the demand-side grounding gap (the sixth agency-surface pattern: an agent
+emitting a schema-valid *number* with no readable anchor). Grounds the value with a
+reader tool instead of a rejection floor or a prompt nudge.
+
+- **`query_baseline_demand` reader impl** in `application/reader_tools.py` +
+  registration in `DEFAULT_READER_TOOLS`; `baseline_demand` → `BaselineDemand` in
+  `world_state/loader.py` `INSTANCE_COLLECTIONS`. Landed as registry + impl with
+  **zero edits to the agent template or the seven tools** — the no-per-role-code
+  stop condition held.
+- **Stub `demand_planning` conflict script** (`runtime/main.py`) now reads the
+  baseline (1500) before sizing, mirroring the grounded LLM; the stub volume stays
+  3000. Verified end-to-end: the stub trace shows `query_baseline_demand` →
+  `{units_per_week: 1500}` validated through dispatch, full-demo still derives the
+  conflict → resolution → `capacity_resolved`.
+- **`CLAUDE.md`** agency heuristic reconciled four → six patterns; #6
+  ungrounded-quantity distinguished (fix family = grounding, not a floor — the value
+  is schema-valid — and not a prompt nudge). Memory index + files updated.
+- **Live `--mode llm` verification** (`runs/mcp-run-cd439092752c.jsonl`, $0.42, no
+  guard trip): `demand_planning`'s first action is `query_baseline_demand` → reads
+  1500 → derives `volume = 9000` transparently (1500 × 2wk × 3.0); **no
+  free-floating 45,000**. Conflict still fires; resolved via `request_promo_revision`.
+  Note: stub sizes 3000, live 9000 — both grounded; they differ only on how
+  `volume_uplift_factor` composes with the window (a contract ambiguity, not a
+  grounding failure; see `briefings/seed-C-…`). 90 tests green.
+
+### 2026-06-01 — Phase 7: the MCP front door (the inbound edge, realized)
+
+Exposes the orchestrator system through MCP as a generic `ingress + read` adapter —
+an external client drops a signal in and reads back what happened — realizing the
+inbound boundary edge the ontology already declares (`is_boundary`).
+
+- **`mcp/core.py`** (`OrchestratorFrontDoor`, transport-agnostic, tested against the
+  real seams) + **`mcp/server.py`** (thin FastMCP wiring, `e2e-mcp` entry point).
+  `ingress_quantum(flow, payload, idempotency_key?)` ↔ command →
+  `dispatch_boundary_ingress`; read-only `trace://`/`narrative://`/`decisions://`/
+  `roleview://` resources ↔ events.
+- **Reuses the CLI's exact world:** `runtime/main.py` factored into
+  `build_scenario_orchestrator` (wiring without the seeder); the front door supplies
+  its own boundary ingress in place of the seeder — same stub/LLM world behind the
+  door, the front door just changes who knocks.
+- **Four boundary constraints held:** no LLM in routing; commands→events (reads come
+  from the event log, ingress returns a *pointer*); no per-role code
+  (`ingress(flow, payload)` is generic); §2 untouched (transport only). The
+  seven-tool kit is deliberately **not** exposed.
+- `tests/test_phase7_dod.py` pins the DoD in stub mode (incl. a real `ClientSession`
+  over the SDK in-memory transport, idempotent retry, generic tool signature).
+  `mcp>=1.2` dep + `e2e-mcp` entry point.
+- Live `--mode llm` reproduction recorded in
+  `briefings/phase7-live-report-mcp-front-door.md`; §12.8 evidence in the design memo.
+
 ### 2026-06-01 — Scrub real retailer names (Walmart→Megalomart, Target→Bullseye, Kroger→Greenfield)
 
 - Replaced real retailer names with fictional ones across source, docs,

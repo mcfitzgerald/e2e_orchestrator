@@ -124,6 +124,13 @@ _PROMO_PRODUCTION_PLANNING = [
 # (cross-domain resolution is Scene 5 / Phase 5).
 _CONFLICT_DEMAND_PLANNING = [
     ScriptedToolCall(tool="read_ontology", kwargs={"query": "my_view"}),
+    # Ground the promo base before applying the uplift (Seed A): read the real
+    # baseline demand (1500/wk) instead of inventing one, then size the request
+    # to baseline × 3.0 − baseline = 3000 incremental. Mirrors what a grounded
+    # LLM demand_planning does now that it has a reader tool — the no-API-key
+    # counterpart to the live query_baseline_demand call. The volume is derived
+    # from a number it read, not a guess (the report §5 ungrounded-quantity gap).
+    ScriptedToolCall(tool="call_tool", kwargs={"name": "query_baseline_demand", "input": {"sku": "TP-FLAG-6OZ"}}),
     ScriptedToolCall(tool="emit_event", kwargs={"name": "forecast_revised", "payload": {"sku": "TP-FLAG-6OZ"}}),
     ScriptedToolCall(
         tool="handoff",

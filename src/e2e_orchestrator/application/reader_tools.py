@@ -184,6 +184,51 @@ def query_supplier_for_sku(input: dict, world_state: WorldState) -> ReaderToolRe
 
 
 # ---------------------------------------------------------------------------
+# query_baseline_demand  ->  BaselineDemand
+# ---------------------------------------------------------------------------
+
+
+def query_baseline_demand(input: dict, world_state: WorldState) -> ReaderToolResult:
+    """Baseline (pre-promo) demand run-rate for a SKU. A promo's
+    `volume_uplift_factor` multiplies this baseline — grounding the base so
+    `demand_planning` multiplies a *real* number instead of inventing one (the
+    report §5 ungrounded-quantity gap: a live run sized a promo SupplyRequest at
+    45,000 off a guessed base). The `BaselineDemand` rows are an outbound-edge
+    shim for a real demand/forecast system behind the same `scont:Tool`
+    contract; the lookup is generic and never fabricates a run-rate.
+
+    A SKU with no baseline row is a *valid-but-empty* miss (typed output, no
+    units) — distinct from an unknown SKU, which is the `unknown_entity` floor."""
+    sku = _entity_id(input.get("sku"), "sku_code")
+    if sku is None or world_state.get_sku(sku) is None:
+        return ReaderToolResult(output=None, evidence=f"{UNKNOWN_ENTITY}: sku={sku!r} not found in world state")
+
+    start = input.get("window_start_day")
+    end = input.get("window_end_day")
+    row = world_state.find("BaselineDemand", sku=sku)
+    if row is None:
+        return ReaderToolResult(
+            output={"sku": sku},
+            evidence=f"no baseline demand on record for sku={sku!r} in world state",
+            details={"sku": sku, "empty": True},
+        )
+
+    output: dict[str, Any] = {"sku": sku, "units_per_week": row.get("units_per_week")}
+    if start is not None:
+        output["window_start_day"] = int(start)
+    if end is not None:
+        output["window_end_day"] = int(end)
+    return ReaderToolResult(
+        output=output,
+        evidence=(
+            f"baseline demand for {sku}: {output['units_per_week']:g} units/week"
+            + (f" over window [{start},{end}]" if start is not None or end is not None else " (standing run-rate)")
+        ),
+        details={"sku": sku, "units_per_week": output["units_per_week"]},
+    )
+
+
+# ---------------------------------------------------------------------------
 # Registry. Keys are the `implementation` contract names on the scont:Tool
 # declarations; the orchestrator binds them to these callables at boot.
 # ---------------------------------------------------------------------------
@@ -193,6 +238,7 @@ DEFAULT_READER_TOOLS: dict[str, ReaderTool] = {
     "query_line_load": query_line_load,
     "query_commitments_in_window": query_commitments_in_window,
     "query_supplier_for_sku": query_supplier_for_sku,
+    "query_baseline_demand": query_baseline_demand,
 }
 
 

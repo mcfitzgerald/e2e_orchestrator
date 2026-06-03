@@ -1,6 +1,6 @@
-"""Reader-tool unit tests (Phase 5).
+"""Reader-tool unit tests (Phase 5; +query_baseline_demand per Seed A).
 
-The four `scont:Tool` implementations read world state and return real entities,
+The `scont:Tool` implementations read world state and return real entities,
 shaped for their declared output class. A grounding miss (entity absent from
 world state) returns `output=None` with an `unknown_entity` evidence string — the
 deterministic counter to the hallucinated-grounding pattern, the same floor the
@@ -86,8 +86,58 @@ def test_query_supplier_for_sku_is_honest_grounding_miss(world_state):
     assert res.evidence.startswith("unknown_entity")
 
 
+def test_query_baseline_demand_grounds_promo_base(world_state, validator):
+    # Seed A: demand_planning reads a REAL baseline instead of inventing one.
+    res = reader_tools.query_baseline_demand({"sku": "TP-FLAG-6OZ"}, world_state)
+    assert res.output is not None
+    # 1500/week tracks the production baseline; ×3.0 promo uplift → 4500, the
+    # 3000 incremental SupplyRequest volume traces to this readable number.
+    assert res.output["units_per_week"] == 1500
+    assert validator.validate("BaselineDemand", res.output).ok
+
+
+def test_query_baseline_demand_window_passthrough(world_state, validator):
+    res = reader_tools.query_baseline_demand(
+        {"sku": "TP-FLAG-6OZ", "window_start_day": 142, "window_end_day": 156}, world_state
+    )
+    assert res.output["window_start_day"] == 142
+    assert res.output["window_end_day"] == 156
+    assert validator.validate("BaselineDemand", res.output).ok
+
+
+def test_query_baseline_demand_unknown_sku_is_grounding_floor(world_state):
+    res = reader_tools.query_baseline_demand({"sku": "NOPE-SKU"}, world_state)
+    assert res.output is None
+    assert res.evidence.startswith("unknown_entity")
+
+
+def test_query_baseline_demand_known_sku_no_baseline_is_valid_empty(world_state, validator):
+    # A real SKU with no baseline row is valid-but-empty (typed output, no
+    # units), distinct from the unknown-entity floor. No demo SKU is missing a
+    # baseline, so synthesise the case with a throwaway world state.
+    from e2e_orchestrator.world_state.loader import Entity, WorldState
+
+    ws = WorldState(
+        instances={
+            "SKU": [Entity("SKU", {"sku_code": "BARE-SKU", "name": "x", "active": True})],
+            "BaselineDemand": [],
+        },
+        production_schedule=[],
+        clock={"today_day_of_year": 100},
+    )
+    res = reader_tools.query_baseline_demand({"sku": "BARE-SKU"}, ws)
+    assert res.output is not None
+    assert "units_per_week" not in res.output
+    assert res.details.get("empty") is True
+
+
 def test_registry_keys_match_implementation_names(ontology_service):
     # Every reader tool the role view exposes must bind to a registered callable.
-    declared = {t.body.implementation for t in ontology_service.tools_available_to("supply_planning")}
+    declared = {
+        t.body.implementation
+        for role in ("supply_planning", "demand_planning")
+        for t in ontology_service.tools_available_to(role)
+    }
     registry = reader_tools.default_registry()
+    assert "query_baseline_demand" in declared
     assert declared <= set(registry)

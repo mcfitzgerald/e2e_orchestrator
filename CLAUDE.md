@@ -95,35 +95,52 @@ Symmetric stop conditions on the orchestrator side:
 
 The structural tests verify the orchestrator surface; they cannot tell you
 whether the LLM is still reasoning agentically. At each phase's live run,
-read the trace's `agent_reasoning` events against the heuristic established
-at Phase 3 live verification (2026-05-29):
+read the trace's `agent_reasoning` events against the **six-pattern**
+heuristic established at Phase 3 live verification (2026-05-29) and extended
+through Phase 1.8 (playbook-ref) and Seed A (ungrounded quantity, 2026-06-02).
+The six patterns split by **fix family**: #1 is healthy; #2/#3 are upstream
+render/playbook fixes; #4/#5 are caught by a deterministic rejection floor;
+#6 cannot be floored (the value is schema-valid) and is fixed only by
+grounding it with a reader tool:
 
-- **Healthy agency surface** — agents cite system mechanics in their
-  reasoning ("the orchestrator will auto-reroute on a blocking axiom",
-  "I'll fire X knowing it gets validated against the SupplyRequest
-  schema"). They reason about decisions rather than rediscovering their
-  identity each invocation.
-- **Identity-discovery regression** — reasoning reverts to "As X, what
-  should I do?" framing. Something broke the orientation preface or the
-  rendered role view. Investigate `e2e_ontology/ontology_service/`
-  upstream first.
-- **Menu-picking regression** — agent with multiple available actions
-  fires one without justification, or fires all flat. Playbook construct
-  (Phase 5) needs to scaffold the judgment. Do NOT patch in the
-  orchestrator — that would re-introduce per-role code. Send a
-  paste-ready briefing to the ontology session.
-- **Hallucinated-grounding regression** — agent confidently references
-  entities (plants, lines, suppliers, SKUs) that don't exist in the
-  loaded world state. Fix is reader tools (Phase 5 §6.2 Tool
-  meta-construct) + a wired world-state loader (Phase 4), NOT prompt
-  nudges. If a post-Phase-5 live run still shows this, reader-tool
-  wiring is broken or the Tool meta-construct isn't surfacing. This
-  pattern spans more than world-state entities: at Phase 1.8 an agent
-  cited a *playbook* name that didn't exist (`surface_decision` on a
-  non-existent playbook). Same fix family — a deterministic rejection
-  floor (`unknown_entity` for entity refs, `unknown_playbook` for
-  playbook refs validated against `playbooks_anchored_to(role)`), never
-  a prompt nudge. Confirmed closed at Phase 5 live verification.
+1. **Healthy + grounded agency surface** — agents cite system mechanics in
+   their reasoning ("the orchestrator will auto-reroute on a blocking axiom",
+   "I'll fire X knowing it gets validated against the SupplyRequest schema")
+   *and* every entity/quantity they cite traces to something they read.
+   They reason about decisions rather than rediscovering their identity each
+   invocation.
+2. **Identity-discovery regression** — reasoning reverts to "As X, what
+   should I do?" framing. Something broke the orientation preface or the
+   rendered role view. Investigate `e2e_ontology/ontology_service/`
+   upstream first.
+3. **Menu-picking regression** — agent with multiple available actions
+   fires one without justification, or fires all flat. Playbook construct
+   (Phase 5) needs to scaffold the judgment. Do NOT patch in the
+   orchestrator — that would re-introduce per-role code. Send a
+   paste-ready briefing to the ontology session.
+4. **Hallucinated-grounding regression (entities)** — agent confidently
+   references entities (plants, lines, suppliers, SKUs) that don't exist in
+   the loaded world state. Fix is reader tools (Phase 5 §6.2 Tool
+   meta-construct) + a wired world-state loader (Phase 4), NOT prompt
+   nudges. If a post-Phase-5 live run still shows this, reader-tool wiring
+   is broken or the Tool meta-construct isn't surfacing. Fix family:
+   deterministic rejection floor (`unknown_entity`), never a prompt nudge.
+5. **Playbook-ref hallucination** — same shape as #4 but on a *playbook*
+   name: at Phase 1.8 an agent called `surface_decision` citing a playbook
+   that didn't exist. Fix family: deterministic rejection floor
+   (`unknown_playbook`, validated against `playbooks_anchored_to(role)`),
+   never a prompt nudge. Confirmed closed at Phase 5 live verification.
+6. **Ungrounded quantity** — agent emits a schema-valid *number* with no
+   readable anchor: at the Phase 6 live run `demand_planning` sized a promo
+   `SupplyRequest` at 45,000 by inventing a baseline to multiply the promo's
+   `volume_uplift_factor` (it had zero reader tools). This is **not** caught
+   by the #4/#5 floors — the value is a valid `decimal` over real entities,
+   correctly outside `unknown_entity`'s remit, and a blocking quantity gate
+   would encode a §2 policy threshold and kill legitimate agency over volume.
+   The **only** correct fix is grounding it: a reader tool that returns the
+   real run-rate (Seed A: `query_baseline_demand` + a baseline-demand
+   fixture), so the agent multiplies a read number instead of a guessed one.
+   Not a rejection floor, not a prompt nudge. Closed by Seed A (2026-06-02).
 
 The Phase 3 landmark to compare against: `supply_planning` inventing its
 own plant/line/window plan, citing the `line_capacity_not_exceeded` axiom
