@@ -65,6 +65,12 @@ but the **implementations are the thinnest thing that satisfies the
 - Views / FSM state → in-memory `dict`.
 - Idempotency → in-memory dict/set.
 - Signals → `asyncio.Future`.
+- MCP front door (Phase 7) run lifecycle → an in-memory `run_id → RunRecord`
+  registry, one orchestrator + trace file per ingress, ingress serialized by a
+  single lock, and a `idempotency_key → run_id` map for wire-level retry dedup.
+  Same shape, same caveat: a production front door reserves the key and runs
+  dispatches concurrently, backed by the durable layer rather than a process-
+  local dict.
 
 This is not durable across process restarts, not concurrency-safe, and not
 multi-process. That's intentional: production swaps this layer for
@@ -104,6 +110,30 @@ on. "Replay" means the orchestration is reproducible, not that the LLM is.
   a full live run with margin.
 - **Cross-repo coupling** is an editable local package today (`e2e-ontology` via
   `[tool.uv.sources]`); pin to a git rev for reproducible/CI builds.
+
+---
+
+## 5. The world fixture + seeded boundaries are shims behind declared edges
+
+`world_state.yaml` (read via reader tools) and the scripted boundary responders
+stand in for the enterprise's systems of record and external participants. The
+*durable* artifacts are the declared edge contracts — boundary roles (inbound) and
+`scont:Tool` reader declarations (outbound). In production these bind to real
+integrations (REST / MCP / A2A) behind the *same* typed contracts; the agent and
+the routing don't change (*"the agent doesn't know the difference,"*
+`agent_system_design.md` §9). Phase 7 realizes the first such edge (inbound, as
+MCP). Whether the transport itself becomes declarative (a connector construct in
+the ontology) is `agent_system_design.md` §12.8 — deliberately resolved by the
+Phase 7 experiment, not on paper.
+
+**Now realized (inbound edge).** Phase 7 built the MCP front door
+(`src/e2e_orchestrator/mcp/`, entry point `e2e-mcp`): `ingress_quantum(flow,
+payload, idempotency_key?)` forwards to `dispatch_boundary_ingress`, and
+read-only resources (`trace://`, `narrative://`, `decisions://`, `roleview://`)
+project the event log / Ontology Service. The evidence it produced for §12.8 — how
+much of the edge the existing contract already covers, what wanted to be
+*declared* vs *wired*, and whether the inbound/outbound edges unify — is in
+`briefings/phase7-live-report-mcp-front-door.md`.
 
 ---
 

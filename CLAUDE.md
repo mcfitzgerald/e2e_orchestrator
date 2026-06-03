@@ -136,6 +136,44 @@ loop. Lose either signal — the operational stance OR the grounded
 reference — and the architecture has regressed in a way the structural
 tests will not catch.
 
+## The MCP boundary (Phase 7 — the front door)
+
+`mcp/` exposes the orchestrator system through MCP so an external client can
+drop a signal in and read back what happened. It is a **dumb adapter**:
+`ingress_quantum(flow, payload, idempotency_key?)` forwards to
+`Orchestrator.dispatch_boundary_ingress` (another caller of the same seam the
+boundary simulators use); read-only resources (`trace://`, `narrative://`,
+`decisions://`, `roleview://`) project the event log / Ontology Service. The
+mapping is load-bearing: **MCP tools ↔ commands, MCP resources ↔ events.** The
+transport-agnostic logic lives in `mcp/core.py` (`OrchestratorFrontDoor`, tested
+against the real seams); `mcp/server.py` is the thin FastMCP wiring + the
+`e2e-mcp` entry point. Run it with `--mode stub` for no-API-key runs; the world
+behind the door is a registry scenario (default `full-demo`), so the same binary
+runs the live LLM demo or a stub run via config, not code.
+
+Four constraints must hold at this boundary (a future session must not
+re-introduce routing or per-role code here):
+
+1. **No LLM in routing.** The server is a protocol adapter; routing stays in
+   `flow_router`. (An MCP *client* may be an LLM — fine; our routing stays
+   deterministic.)
+2. **Commands → events.** Every external action goes through the orchestrator;
+   the server never dispatches downstream, writes events, or peeks at live
+   in-memory state. Reads come from the event log; `ingress_quantum` returns a
+   *pointer* (resource URIs), not synchronous downstream effects.
+3. **No per-role code.** `ingress_quantum(flow, payload)` is generic — no `if
+   role == ...`, no per-role tool registration. **Standing stop condition:** if
+   exposing the front door needs per-role branching, the abstraction is leaking
+   — stop and surface it to the dev-manager session, don't code around it.
+4. **§2 world-vs-policy.** Transport only — no policy, no new ontology fields,
+   no `prefer`/`priority`/`fallback`-shaped surface.
+
+Do **not** expose the seven-tool kit over MCP — those are the agent's hands
+(closures over a live `ToolContext`); surfacing them is a category error that
+invites per-role coupling and bypasses commands→events. The external surface is
+**ingress + reads**, full stop. The §12.8 evidence the realized edge produced is
+in `briefings/phase7-live-report-mcp-front-door.md`.
+
 ## Common pitfalls
 
 - **Don't store quantum IDs inside the quantum.** The orchestrator stamps a

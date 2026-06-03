@@ -506,20 +506,32 @@ def _default_log_path(scenario: str) -> Path:
     return Path("runs") / f"{scenario}-{ts}.jsonl"
 
 
-async def run_scenario(
+def build_scenario_orchestrator(
     scenario: str = DEFAULT_SCENARIO,
     *,
     log_path: Path | None = None,
     mode: str = "llm",
     ontology_yaml: Path | None = None,
-) -> dict:
-    """Execute a scenario end-to-end. Returns a summary dict for human reading."""
+    service: OntologyService | None = None,
+) -> tuple[Orchestrator, JsonlBackend, OntologyService, dict]:
+    """Wire a scenario's orchestrator + backend WITHOUT firing its seeder.
+
+    This is the shared construction path: `run_scenario` adds the seeder on top;
+    the MCP front door (`mcp/core.py`) reuses the identical wiring but supplies
+    its *own* boundary ingress in place of the seeder — so the simulated world
+    behind the front door (stub scripts in `--mode stub`, real LlmAgents in
+    `--mode llm`, plus the cross-domain responders) is exactly the CLI's. The
+    front door changes who knocks, not what's behind the door.
+
+    Returns `(orch, backend, service, spec)`. The caller drives ingress.
+    """
     if scenario not in SCENARIOS:
         raise ValueError(f"unknown scenario {scenario!r}; choose from {sorted(SCENARIOS)}")
     spec = SCENARIOS[scenario]
 
-    yaml_path = ontology_yaml or SUPPLY_CHAIN_DEMO_YAML
-    service = OntologyService.load(yaml_path)
+    if service is None:
+        yaml_path = ontology_yaml or SUPPLY_CHAIN_DEMO_YAML
+        service = OntologyService.load(yaml_path)
     backend = JsonlBackend(log_path=log_path)
 
     # No per-role overrides in llm mode: identity + action come from the
@@ -544,6 +556,20 @@ async def run_scenario(
     for h in overrides.values():
         if hasattr(h, "_orch"):
             h._orch = orch  # type: ignore[attr-defined]
+    return orch, backend, service, spec
+
+
+async def run_scenario(
+    scenario: str = DEFAULT_SCENARIO,
+    *,
+    log_path: Path | None = None,
+    mode: str = "llm",
+    ontology_yaml: Path | None = None,
+) -> dict:
+    """Execute a scenario end-to-end. Returns a summary dict for human reading."""
+    orch, backend, service, spec = build_scenario_orchestrator(
+        scenario, log_path=log_path, mode=mode, ontology_yaml=ontology_yaml
+    )
 
     seeder: Seeder = spec["seeder"]
     dispatch = await seeder(orch)

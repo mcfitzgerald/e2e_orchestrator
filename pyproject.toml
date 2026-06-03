@@ -8,6 +8,7 @@ dependencies = [
     "e2e-ontology",
     "google-adk>=1.0",
     "linkml-runtime>=1.7",
+    "mcp>=1.2",
     "pydantic>=2.6",
     "pyyaml>=6.0",
 ]
@@ -22,6 +23,7 @@ dev = [
 e2e-orchestrator = "e2e_orchestrator.runtime.main:cli"
 e2e-narrate = "e2e_orchestrator.runtime.narrative:cli"
 e2e-replay = "e2e_orchestrator.runtime.replay:cli"
+e2e-mcp = "e2e_orchestrator.mcp.server:main"
 
 [build-system]
 requires = ["hatchling"]
