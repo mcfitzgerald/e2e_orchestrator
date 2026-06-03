@@ -5,10 +5,14 @@ Orchestrator + generic agent runtime for the supply chain ontology developed in
 single agent; Phase 3 generalized it to three roles with no per-role code; Phase
 4 put the deterministic backbone (world-state axioms, FSM guards, auto-recovery)
 under the agent layer; Phase 5 added Playbook execution + reader tools (Scene 5
-cross-domain context assembly); and **Phase 6 completes the demo** — the three
+cross-domain context assembly); **Phase 6 completes the demo** — the three
 resolution paths, the full promo-whiplash narrative from one seed through
 conflict → resolution → re-convergence, and a trace renderer + replay so the log
-tells the Scene 1→6 story.
+tells the Scene 1→6 story; and **Phase 7 opens the front door** — the whole system
+is reachable through MCP as a generic `ingress + read` adapter, realizing the
+inbound boundary edge the ontology already declares (`is_boundary`). The demand
+side is also grounded now (Seed A): `demand_planning` reads a real baseline via
+`query_baseline_demand` instead of inventing one.
 
 ## What this repo contains
 
@@ -53,8 +57,11 @@ src/e2e_orchestrator/
   world_state/    fixture loader + generic typed queries (schedule, clock)
   durability/     JSONL event log + in-memory views + asyncio signals
   boundary/       ingress simulators + stub responders
+  mcp/            Phase 7 front door: OrchestratorFrontDoor (core) + FastMCP
+                  server (e2e-mcp). ingress_quantum=command, trace/narrative/
+                  decisions/roleview resources=events. A dumb transport adapter.
   runtime/        wires everything; CLIs: e2e-orchestrator, e2e-narrate, e2e-replay
-tests/            unit tests + Phase 2/3/4/5/6 DoD assertions
+tests/            unit tests + Phase 2/3/4/5/6/7 DoD assertions
 ```
 
 The sibling `e2e_ontology` repo is a declared dependency, installed from a local
@@ -231,3 +238,47 @@ the deterministic floor). First re-verification of the resolution arc — and of
 Scenes 1–3 — on a Gemini 3.x model, and the §10 "path materially differs across
 runs" criterion met live. Guards survive the full narrative with margin (12/25
 invocations, 0.59M/2M tokens).
+
+## Phase 7 definition of done
+
+**The orchestrator system is reachable through MCP as a generic `ingress + read`
+adapter — an external client drops a signal in and reads back what happened — with
+the four boundary constraints intact.**
+
+```
+uv run e2e-mcp --transport stdio --mode stub --world full-demo
+```
+
+`ingress_quantum(flow, payload, idempotency_key?)` is the single write surface
+(tool = command); it forwards to `Orchestrator.dispatch_boundary_ingress` and
+returns a *pointer* (resource URIs), not synchronous downstream effects. Read-only
+`trace://`, `narrative://`, `decisions://`, `roleview://` resources project the
+event log / Ontology Service (resources = events). The server is a dumb adapter:
+**no LLM in routing** (routing stays in `flow_router`), **commands→events** (reads
+come only from the log), **no per-role code** (`ingress(flow, payload)` is generic
+— a standing stop condition if it ever needs per-role branching), **§2 untouched**
+(transport only). The seven-tool kit is deliberately **not** exposed — those are the
+agent's hands, and surfacing them would invite per-role coupling. `mcp/core.py`
+holds the transport-agnostic logic (tested against the real seams); `mcp/server.py`
+is the thin FastMCP wiring. See `tests/test_phase7_dod.py` (incl. a real
+`ClientSession` over the SDK in-memory transport).
+
+Verified live 2026-06-01/02 on `gemini-3.5-flash`, driving real `LlmAgent`s through
+the protocol: a single `ingress_quantum(submit_promo_plan, …)` ran the full
+promo-whiplash narrative end-to-end (`runs/mcp-run-cd439092752c.jsonl` — 0.49M
+tokens, ~$0.42, no guard trip), resolving via `request_promo_revision`. With Seed A
+in place, `demand_planning`'s first action is `query_baseline_demand` → reads the
+real baseline (1500/wk) → sizes the request from that read — **no free-floating
+quantity** (closes the sixth agency-surface pattern; see `CLAUDE.md`).
+
+## Phase 7 §12.8 — the ontology exposes the handshakes (open)
+
+The world fixture and the seeded boundary responders are **shims behind edges the
+ontology already declares**: boundary roles (inbound) and `scont:Tool` readers
+(outbound). In production these bind to real integrations (REST/MCP/A2A) behind the
+*same* typed contracts; the agent and the routing don't change. Phase 7 realizes the
+first such edge (inbound, as MCP) and is the **experiment** informing whether the
+transport itself becomes declarative (a `scont:Connector` in the ontology) or stays a
+binding layer — leaning **contract in, wire out**. See `docs/limitations.md` and the
+design memo `briefings/design-memo-ontology-exposes-handshakes.md`; the open question
+is `e2e_ontology/agent_system_design.md` §12.8.
