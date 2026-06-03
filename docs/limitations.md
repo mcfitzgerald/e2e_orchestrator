@@ -123,8 +123,18 @@ integrations (REST / MCP / A2A) behind the *same* typed contracts; the agent and
 the routing don't change (*"the agent doesn't know the difference,"*
 `agent_system_design.md` §9). Phase 7 realizes the first such edge (inbound, as
 MCP). Whether the transport itself becomes declarative (a connector construct in
-the ontology) is `agent_system_design.md` §12.8 — deliberately resolved by the
-Phase 7 experiment, not on paper.
+the ontology) is `agent_system_design.md` §12.8 — deliberately resolved by
+experiment, not on paper.
+
+**§12.8 resolved (2026-06-03) — principle settled, construct deferred.** With the
+outbound edge now built (Seed A's `query_baseline_demand` reader), three edge cells
+agree on *contract-in/wire-out* (typed I/O = world model in the ontology;
+endpoint/auth/transport = wire/config). The one thing that wanted declaring —
+idempotency/session — turned out to be a *command* property (it did not resurface at
+the read-only outbound edge), not a general edge property. **Verdict: do not build a
+`scont:Connector`;** if idempotency is ever declared it attaches to the boundary
+flow. The only unbuilt cell is outbound-command (A2A), the sole site idempotency
+could recur — that is the trigger that would reopen the construct question.
 
 **Now realized (inbound edge).** Phase 7 built the MCP front door
 (`src/e2e_orchestrator/mcp/`, entry point `e2e-mcp`): `ingress_quantum(flow,

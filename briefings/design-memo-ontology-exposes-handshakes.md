@@ -125,13 +125,62 @@ all three observation questions. Full report:
    query flows; MCP tools vs resources). A `scont:Connector` of kind
    `{inbound|outbound}` + typed I/O + bound transport would cover both.
 
-**Where this leaves §12.8.** Directionally answered (*contract-in, wire-out*; a
-`scont:Connector` is the concrete candidate for the one thing that wanted
-declaring). **Still open — do not build the construct yet.** This is *inbound* evidence
-only; let an **outbound** edge add its half before designing `scont:Connector` (the
-repo ethos: build it, see what's needed). Seed A's baseline-demand reader is the
-next outbound edge — it should be read against these same three questions and its
-findings appended here. Close §12.8 when both edges agree on the construct.
+**Where this leaves §12.8 (as of Phase 7).** Directionally answered (*contract-in,
+wire-out*; a `scont:Connector` is the concrete candidate for the one thing that
+wanted declaring). **Still open — do not build the construct yet.** This is *inbound*
+evidence only; let an **outbound** edge add its half before designing
+`scont:Connector` (the repo ethos: build it, see what's needed). Seed A's
+baseline-demand reader is the next outbound edge — it should be read against these
+same three questions and its findings appended here. Close §12.8 when both edges
+agree on the construct.
+
+---
+
+## Evidence from Seed A (2026-06-03) — the outbound edge, and §12.8 closes
+
+Seed A built the first **outbound** edge: the `query_baseline_demand` reader
+(`application/reader_tools.py`, declared as a `scont:Tool` in the ontology). Read
+against the same three questions:
+
+1. **Contract coverage: high again → contract-in/wire-out, a third time.** The
+   `scont:Tool` declared the name, typed I/O (`BaselineDemandQuery` →
+   `BaselineDemand`), and a symbolic `implementation`. The orchestrator added only
+   the wire: the Python callable + the fixture read + the registry binding. Nothing
+   semantic crossed into the orchestrator; nothing infrastructural crossed into the
+   ontology.
+2. **Did anything want *declaring*? No — and that is the decisive finding.** At the
+   inbound edge, idempotency/session wanted a home at both layers. At the outbound
+   *reader* it **does not resurface**: a read is naturally idempotent (no dedup, no
+   session). So the thing that motivated `scont:Connector` is a **command** property,
+   not a general edge property. Endpoint/auth again stayed pure config.
+3. **One abstraction for both directions? Only at the contract level — and the
+   divergence is exactly idempotency.** Inbound and outbound share {name, typed I/O,
+   symbolic implementation, edge-kind}; they diverge on idempotency, which lives only
+   on the *command* side. A bidirectional `scont:Connector` whose headline was
+   idempotency would over-fit: the directions rhyme on contract but split on the one
+   property that justified the construct.
+
+### Verdict — principle resolved, construct deferred
+
+The {inbound, outbound} × {command, query} 2×2 now has **three cells realized** —
+inbound-command (`ingress_quantum`), inbound-query (MCP resources), outbound-query
+(the reader) — **all agreeing contract-in/wire-out.** Only **outbound-command (A2A)**
+is unbuilt, and it is the *sole* remaining site where idempotency could recur.
+
+- **Principle: settled.** Typed I/O contract = world model (stays in the ontology);
+  endpoint / auth / transport = wire (stays config). The agent keeps reasoning over
+  typed contracts, blind to transport.
+- **Construct (`scont:Connector`): do not build it.** Its sole justification
+  (idempotency/session) is inbound-command-only on the evidence so far. If ever
+  declared, idempotency attaches to the **boundary flow**, not a new bidirectional
+  construct.
+- **Trigger to reopen:** the first **outbound-command (A2A)** edge — a boundary role
+  reaching an external agent/system. That is the second idempotency site and the only
+  thing that can confirm or kill the bidirectional-connector idea. Building the
+  construct before then is the construct-first move §12.7 warns against.
+
+Recorded in `agent_system_design.md` §12 #8 (resolution paragraph) and
+`docs/limitations.md`.
 
 ---
 
