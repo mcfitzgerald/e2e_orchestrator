@@ -99,6 +99,15 @@ Both variants share **one** balanced fixture (K1). They differ only in the
 >    the fixture comment.
 > Do **not** touch `NJ-L1` — its 5000-residual / 1500-shortfall invariant is
 > load-bearing (`[[phase-a-session2-orchestrator]]`, `test_world_state.py`).
+>
+> **AS-BUILT (2026-06-05): chose `CA-L1`, not `NJ-L2`.** Implementation found
+> `NJ-L2` is a **mouthwash** line — flagship toothpaste there fails CSCO
+> credibility. `CA-L1` is already the toothpaste alternative (runs `TPB-WHIT` +
+> `TP-KIDS`), so the flagship belongs there. `PLANT-CA`'s 10-day mfg lead is no
+> blocker (`today=100`, window 140–146). Delta: `CA-L1.committed_load 46000→45000`
+> (available 4000→5000) + a `TP-FLAG-6OZ` schedule row 400/wk (weeks 140 & 147) →
+> free residual 1900 ≥ 1500. Verified: `query_plants_for_sku(TP-FLAG-6OZ)` =
+> `[NJ-L1]` canonical vs `[NJ-L1, CA-L1]` balanced.
 
 ---
 
