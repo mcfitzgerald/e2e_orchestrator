@@ -104,7 +104,7 @@ def test_expr_function_call_is_stop_condition(evaluator):
 
 def test_expr_entity_traversal_is_stop_condition(evaluator):
     ax = SimpleNamespace(name="cap", severity="blocking", tool_ref=None,
-                         expr="{quantum.assigned_line.rated_weekly_capacity} >= {quantum.volume}",
+                         expr="{quantum.assigned_line.capacity_total} >= {quantum.volume}",
                          on_failure_route_to=None)
     out = evaluator.evaluate_axiom(ax, {"volume": 10})
     assert out.passed is True

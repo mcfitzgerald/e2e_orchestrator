@@ -80,11 +80,13 @@ def _num(value: Any) -> float | None:
 
 def evaluate_line_capacity_not_exceeded(quantum: dict, world_state: WorldState) -> AxiomToolResult:
     """Total scheduled production on the assigned line for the requested window,
-    plus the requested volume, must not exceed the line's rated weekly capacity.
+    plus the requested volume, must not exceed the line's RESIDUAL available
+    capacity (`capacity_total − committed_load`) — a loaded line's real headroom
+    is the residual, not the rated total.
 
     Mirrors the axiom's `expr` (`sum_scheduled_units(line, window) + volume <=
-    line.rated_weekly_capacity`) but resolves the line and schedule from world
-    state — the part `equals_expression` cannot express."""
+    (line.capacity_total − line.committed_load)`) but resolves the line and
+    schedule from world state — the part `equals_expression` cannot express."""
     plant = quantum.get("assigned_plant")
     line_code = _entity_id(quantum.get("assigned_line"), "line_code", "line")
     sku = _entity_id(quantum.get("sku"), "sku_code")
@@ -107,9 +109,12 @@ def evaluate_line_capacity_not_exceeded(quantum: dict, world_state: WorldState) 
         )
 
     load = world_state.query_line_load(plant, line_code, int(ws_start), int(ws_end))
-    capacity = int(line.rated_weekly_capacity)
+    # Residual available headroom = capacity_total − committed_load. A loaded
+    # line at 90% utilization leaves only a few thousand units of residual; the
+    # constraint is "demand ≤ residual", not "demand ≤ rated total".
+    available = int(load.available)
     total = load.scheduled_units + volume
-    passed = total <= capacity
+    passed = total <= available
 
     if passed:
         return AxiomToolResult(
@@ -117,12 +122,19 @@ def evaluate_line_capacity_not_exceeded(quantum: dict, world_state: WorldState) 
             evidence=(
                 f"{plant}/{line_code} window [{ws_start},{ws_end}]: scheduled "
                 f"{load.scheduled_units:g} + requested {volume:g} = {total:g} "
-                f"<= rated weekly capacity {capacity}"
+                f"<= residual available {available} "
+                f"({load.capacity_total} total − {load.committed_load} committed)"
             ),
-            details={"scheduled_units": load.scheduled_units, "capacity": capacity, "total": total},
+            details={
+                "scheduled_units": load.scheduled_units,
+                "capacity_total": load.capacity_total,
+                "committed_load": load.committed_load,
+                "available": available,
+                "total": total,
+            },
         )
 
-    shortfall = total - capacity
+    shortfall = total - available
     competing = list(load.scheduled_skus)
     if sku is not None and sku not in competing:
         competing.append(sku)
@@ -142,12 +154,16 @@ def evaluate_line_capacity_not_exceeded(quantum: dict, world_state: WorldState) 
         evidence=(
             f"{plant}/{line_code} window [{ws_start},{ws_end}]: scheduled "
             f"{load.scheduled_units:g} + requested {volume:g} = {total:g} "
-            f"> rated weekly capacity {capacity}; shortfall {shortfall:g}"
+            f"> residual available {available} "
+            f"({load.capacity_total} total − {load.committed_load} committed); "
+            f"shortfall {shortfall:g}"
         ),
         recovery_quantum=recovery_quantum,
         details={
             "scheduled_units": load.scheduled_units,
-            "capacity": capacity,
+            "capacity_total": load.capacity_total,
+            "committed_load": load.committed_load,
+            "available": available,
             "total": total,
             "shortfall_units": shortfall,
             "competing_skus": competing,

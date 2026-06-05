@@ -42,9 +42,14 @@ def test_query_line_load_matches_conflict_math(world_state, validator):
         world_state,
     )
     assert res.output is not None
-    # Baseline NJ-L1 load in the promo window is 3500 (1500 + 2000) of 5000.
+    # Residual-capacity model: NJ-L1 is 45000/50000 committed (90% utilized) →
+    # 5000 residual available; the two toothpaste SKUs use 3500 of that residual.
     assert res.output["scheduled_units"] == 3500
-    assert res.details["available"] == 1500
+    assert res.output["capacity_total"] == 50000
+    assert res.output["committed_load"] == 45000
+    assert res.output["available"] == 5000
+    assert res.output["utilization"] == 0.90
+    assert res.details["available"] == 5000
     assert validator.validate("LineLoad", res.output).ok
 
 

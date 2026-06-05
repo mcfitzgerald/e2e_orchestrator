@@ -7,6 +7,34 @@ date-stamped session entries, no tagged releases yet, everything under
 
 ## [Unreleased]
 
+### 2026-06-04 — Residual-capacity model (Seed A2, Session 2: consumes the ontology contract)
+
+Consumes the ontology Session-1 reframe (`e2e_ontology` @ `5f1dd01`): NJ-L1 is no
+longer a toy "capacity 5000" cell but a real, loaded line — `capacity_total` 50000,
+`committed_load` 45000 (one aggregate fact), **residual available 5000** (90%
+utilized). Representation only: the shortfall stays exactly **1500/wk** and the
+Seed-A baseline stays **1500/wk** — a reframe, not a rescale.
+
+- **`world_state/loader.py`** — `LineLoad` drops `rated_weekly_capacity` for
+  `capacity_total` + `committed_load`; `available` is now the **residual**
+  (`capacity_total − committed_load`), not net-of-scheduled; new `utilization`
+  property. `query_line_load` reads both fields off the line entity.
+- **`application/axiom_tools.py`** — `line_capacity_not_exceeded` evaluates
+  `scheduled_units + volume <= available` (the residual), not the rated total.
+  Identical shortfall (1500); evidence + details reworded to residual terms
+  (`capacity_total`/`committed_load`/`available`).
+- **`application/reader_tools.py`** — `query_line_load` output now carries
+  `capacity_total`, `committed_load`, `available`, `utilization` (validates against
+  the enriched `LineLoad` class); evidence reads "X committed of Y total → Z
+  residual available (90% utilized)" so the agent grounds in headroom, not the toy
+  total.
+- **Tests / docs** — `test_world_state_loader`, `test_reader_tools`,
+  `test_axiom_evaluator` assert `available == 5000`, `utilization == 0.90`,
+  `shortfall == 1500`; `runtime/main.py` + `README.md` reworded to residual terms.
+  §2 clean (`committed_load` is a fact, `available` is arithmetic over facts — no
+  policy/threshold/ranking). 93 orchestrator + 258 ontology tests green. `--mode
+  stub`; no live LLM run.
+
 ### 2026-06-02 — Seed A: baseline-demand grounding (consumes the ontology contract)
 
 Closes the demand-side grounding gap (the sixth agency-surface pattern: an agent

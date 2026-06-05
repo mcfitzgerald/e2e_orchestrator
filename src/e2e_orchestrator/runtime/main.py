@@ -62,10 +62,11 @@ from ..durability import JsonlBackend
 
 # Promo whiplash happy path (Phase 3, Scenes 1-3). Grounded in world_state:
 # TP-FLAG-6OZ produced on NJ-L1 in the conflict window, but sized to the line's
-# remaining headroom (NJ-L1 baseline week 140 = 3500/5000) so the deterministic
-# Phase 4 capacity axiom PASSES. The full 3x promo uplift — which overflows the
-# line — is exactly what `--scenario capacity-conflict` exercises; here the
-# happy slice keeps the request within capacity.
+# residual headroom (NJ-L1: 45000/50000 committed → 5000 residual; the two
+# toothpaste SKUs already use 3500 of it) so the deterministic Phase 4 capacity
+# axiom PASSES. The full 3x promo uplift — which overflows the residual — is
+# exactly what `--scenario capacity-conflict` exercises; here the happy slice
+# keeps the request within the residual available capacity.
 _PROMO_DEMAND_PLANNING = [
     ScriptedToolCall(tool="read_ontology", kwargs={"query": "my_view"}),
     ScriptedToolCall(tool="emit_event", kwargs={"name": "forecast_revised", "payload": {"sku": "TP-FLAG-6OZ"}}),
@@ -116,8 +117,9 @@ _PROMO_PRODUCTION_PLANNING = [
 
 # Phase 4 — capacity conflict (Scene 4). Same Megalomart 3x promo ingress; this
 # time supply_planning sizes the ProductionRequest to the full uplift (3000
-# incremental units on NJ-L1 for week 140). NJ-L1 already carries 3500/5000 in
-# that window, so scheduled 3500 + requested 3000 = 6500 > 5000 — the blocking
+# incremental units on NJ-L1 for week 140). NJ-L1's residual available is 5000
+# (50000 total − 45000 committed) and the toothpaste SKUs already use 3500 of
+# it, so scheduled 3500 + requested 3000 = 6500 > 5000 residual — the blocking
 # line_capacity_not_exceeded axiom fires and the orchestrator follows
 # on_failure_route_to: escalate_capacity_conflict back to supply_planning. No
 # LLM is in the routing. supply_planning's recovery handler just acknowledges

@@ -9,7 +9,8 @@ The DoD (ontology repo `plan_of_attack.md` §4):
 
 Scene 4, end-to-end: a Megalomart 3x promo enters; demand_planning revises and
 hands a SupplyRequest to supply_planning; supply_planning assigns the full
-uplift (3000 units) to NJ-L1, which already carries 3500/5000 in the window.
+uplift (3000 units) to NJ-L1 — a loaded line whose residual available is 5000
+(50000 total − 45000 committed), of which the toothpaste SKUs already use 3500.
 The blocking `line_capacity_not_exceeded` axiom fires deterministically and the
 orchestrator follows `on_failure_route_to: escalate_capacity_conflict` back to
 supply_planning — no LLM chooses the route, and production_planning never gets

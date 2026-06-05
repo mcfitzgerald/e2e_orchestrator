@@ -53,7 +53,7 @@ INSTANCE_COLLECTIONS: dict[str, str] = {
 class Entity:
     """A validated world-state instance with attribute access over its slots.
 
-    Generic on purpose: `entity.rated_weekly_capacity` reads the slot of the
+    Generic on purpose: `entity.capacity_total` reads the slot of the
     same name from the validated payload, for any entity class. No per-type
     subclass exists — the type is carried as `class_name` for the trace."""
 
@@ -80,22 +80,36 @@ class Entity:
 
 @dataclass(frozen=True)
 class LineLoad:
-    """Computed aggregate (not an entity): scheduled load on a line for a
-    window, against the line's rated weekly capacity."""
+    """Computed aggregate (not an entity): the residual-capacity picture for a
+    line over a window. A real line is mostly committed, so its headroom for new
+    work is the RESIDUAL — `capacity_total - committed_load` — not the full rated
+    throughput. `committed_load` is one aggregate fact (the line's ~28 other
+    SKUs already scheduled); `scheduled_units` is the explicitly-modelled SKUs
+    competing for that residual (distinct from `committed_load`)."""
 
     plant_code: str
     line_code: str
     window_start_day: int
     window_end_day: int
     scheduled_units: float
-    rated_weekly_capacity: int | None
+    capacity_total: int | None
+    committed_load: int | None
     scheduled_skus: tuple[str, ...]
 
     @property
     def available(self) -> float | None:
-        if self.rated_weekly_capacity is None:
+        """Residual available capacity = capacity_total − committed_load. The
+        line's real headroom for new production (NOT net of scheduled_units)."""
+        if self.capacity_total is None or self.committed_load is None:
             return None
-        return self.rated_weekly_capacity - self.scheduled_units
+        return self.capacity_total - self.committed_load
+
+    @property
+    def utilization(self) -> float | None:
+        """committed_load / capacity_total, as a fraction (0.90 == 90%)."""
+        if self.capacity_total is None or self.committed_load is None or self.capacity_total == 0:
+            return None
+        return self.committed_load / self.capacity_total
 
 
 class WorldStateValidationError(RuntimeError):
@@ -203,11 +217,13 @@ class WorldState:
         window_end_day: int,
     ) -> LineLoad:
         """Sum baseline scheduled units on `line` whose week falls inside the
-        window, against the line's rated weekly capacity. Generic over the
-        supplementary `production_schedule`; the unit of comparison is weekly
-        (capacity is weekly), so a single-week window is the intended grain."""
+        window, and surface the line's residual capacity (capacity_total −
+        committed_load). Generic over the supplementary `production_schedule`;
+        the unit of comparison is weekly (capacity is weekly), so a single-week
+        window is the intended grain."""
         line_ent = self.get_production_line(plant, line)
-        capacity = int(line_ent.rated_weekly_capacity) if line_ent is not None else None
+        capacity_total = int(line_ent.capacity_total) if line_ent is not None else None
+        committed_load = int(line_ent.committed_load) if line_ent is not None else None
 
         total = 0.0
         skus: list[str] = []
@@ -228,7 +244,8 @@ class WorldState:
             window_start_day=window_start_day,
             window_end_day=window_end_day,
             scheduled_units=total,
-            rated_weekly_capacity=capacity,
+            capacity_total=capacity_total,
+            committed_load=committed_load,
             scheduled_skus=tuple(skus),
         )
 

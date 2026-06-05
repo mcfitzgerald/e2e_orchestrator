@@ -81,9 +81,12 @@ def query_plants_for_sku(input: dict, world_state: WorldState) -> ReaderToolResu
 
 
 def query_line_load(input: dict, world_state: WorldState) -> ReaderToolResult:
-    """Scheduled production load on a (plant, line) across a window, against the
-    line's rated weekly capacity. Wraps `WorldState.query_line_load` and shapes
-    the result for the declared `LineLoad` output class."""
+    """The residual-capacity picture for a (plant, line) over a window:
+    capacity_total, committed_load, the derived residual `available`, utilization,
+    and the explicitly-scheduled units. A loaded line's real headroom is the
+    residual (capacity_total − committed_load), not the rated total. Wraps
+    `WorldState.query_line_load` and shapes the result for the declared `LineLoad`
+    output class."""
     plant = input.get("plant_code")
     line = input.get("line_code")
     start = input.get("window_start_day")
@@ -101,16 +104,27 @@ def query_line_load(input: dict, world_state: WorldState) -> ReaderToolResult:
         "line_code": load.line_code,
         "window_start_day": load.window_start_day,
         "window_end_day": load.window_end_day,
+        "capacity_total": load.capacity_total,
+        "committed_load": load.committed_load,
+        "available": load.available,
+        "utilization": load.utilization,
         "scheduled_units": load.scheduled_units,
     }
+    util_pct = f"{load.utilization * 100:g}%" if load.utilization is not None else "?"
     return ReaderToolResult(
         output=output,
         evidence=(
             f"{load.plant_code}/{load.line_code} window [{start},{end}]: "
-            f"scheduled {load.scheduled_units:g}"
-            + (f", available {load.available:g} of {load.rated_weekly_capacity}" if load.available is not None else "")
+            + (
+                f"{load.committed_load:g} committed of {load.capacity_total:g} total "
+                f"→ {load.available:g} residual available ({util_pct} utilized); "
+                if load.available is not None
+                else ""
+            )
+            + f"scheduled {load.scheduled_units:g}"
         ),
-        details={"rated_weekly_capacity": load.rated_weekly_capacity, "available": load.available,
+        details={"capacity_total": load.capacity_total, "committed_load": load.committed_load,
+                 "available": load.available, "utilization": load.utilization,
                  "scheduled_skus": list(load.scheduled_skus)},
     )
 

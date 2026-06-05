@@ -152,10 +152,11 @@ uv run e2e-orchestrator --scenario capacity-conflict --mode stub
 ```
 
 The Megalomart 3x promo enters; `supply_planning` assigns the full uplift (3000
-units) to NJ-L1, which already carries 3500/5000 in the window. The orchestrator
-evaluates `line_capacity_not_exceeded` against world state
-(`sum_scheduled_units + volume <= rated_weekly_capacity`), the blocking axiom
-fires (`6500 > 5000`, shortfall 1500), `request_production` is **blocked, not
+units) to NJ-L1 — a real, loaded line running 45000/50000 (90% utilized), so its
+residual available is 5000, of which the toothpaste SKUs already use 3500. The
+orchestrator evaluates `line_capacity_not_exceeded` against world state
+(`sum_scheduled_units + volume <= capacity_total - committed_load`), the blocking
+axiom fires (`6500 > 5000` residual, shortfall 1500), `request_production` is **blocked, not
 executed**, and the orchestrator automatically follows
 `on_failure_route_to: escalate_capacity_conflict` back to `supply_planning`
 carrying a `CapacityConflict`. `production_planning` never gets the option to

@@ -24,7 +24,9 @@ def test_instances_validate_and_load(world_state: WorldState):
 def test_typed_accessors(world_state: WorldState):
     line = world_state.get_production_line("PLANT-NJ", "NJ-L1")
     assert line is not None
-    assert line.rated_weekly_capacity == 5000
+    # Residual-capacity model: a real, loaded line — 50k total, 90% committed.
+    assert line.capacity_total == 50000
+    assert line.committed_load == 45000
     assert line.plant_code == "PLANT-NJ"
 
     sku = world_state.get_sku("TP-FLAG-6OZ")
@@ -48,17 +50,22 @@ def test_grounding_missing_entity_returns_none(world_state: WorldState):
 
 
 def test_line_load_conflict_math(world_state: WorldState):
-    """The fixture header's Scene 4 math: NJ-L1 week 140 baseline = 3500/5000."""
+    """The fixture header's Scene 4 math, RESIDUAL-CAPACITY model: NJ-L1 runs
+    45000/50000 committed (90% utilized) → 5000 residual available; the two
+    toothpaste SKUs use 3500 of that residual at week 140. Reframe, not rescale:
+    `available` (5000) reproduces the old toy "rated capacity 5000" exactly."""
     load = world_state.query_line_load("PLANT-NJ", "NJ-L1", 140, 146)
     assert load.scheduled_units == 3500
-    assert load.rated_weekly_capacity == 5000
-    assert load.available == 1500
+    assert load.capacity_total == 50000
+    assert load.committed_load == 45000
+    assert load.available == 5000           # residual = 50000 − 45000
+    assert load.utilization == 0.90
     assert set(load.scheduled_skus) == {"TP-FLAG-6OZ", "TP-SEC-6OZ"}
 
-    # Full 3x uplift (3000 incremental) overflows: 3500 + 3000 = 6500 > 5000.
-    assert load.scheduled_units + 3000 > load.rated_weekly_capacity
-    # The happy-path slice (1200) fits: 3500 + 1200 = 4700 <= 5000.
-    assert load.scheduled_units + 1200 <= load.rated_weekly_capacity
+    # Full 3x uplift (3000 incremental) overflows the residual: 3500 + 3000 = 6500 > 5000.
+    assert load.scheduled_units + 3000 > load.available
+    # The happy-path slice (1200) fits the residual: 3500 + 1200 = 4700 <= 5000.
+    assert load.scheduled_units + 1200 <= load.available
 
 
 def test_line_load_is_weekly_grained(world_state: WorldState):
@@ -75,7 +82,7 @@ def test_commitments_for_skus_generic_filter(world_state: WorldState):
 
 def test_strict_validation_rejects_bad_instance(ontology_service, tmp_path):
     bad = tmp_path / "bad_world.yaml"
-    # ProductionLine.rated_weekly_capacity is required + integer; omit it.
+    # ProductionLine.capacity_total / committed_load are required + integer; omit them.
     bad.write_text(
         "production_lines:\n"
         "  - line_code: X-1\n"
