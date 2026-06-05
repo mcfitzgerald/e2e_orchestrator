@@ -129,6 +129,7 @@ class Orchestrator:
         *,
         clock: Callable[[], int] | None = None,
         world_state: Any | None = None,
+        world_state_path: Any | None = None,
     ):
         self._svc = service
         self._backend = backend
@@ -140,7 +141,13 @@ class Orchestrator:
         # World state loaded once at boot (§9). The axiom evaluator reads it for
         # tool-backed axioms; if the fixture is absent, evaluation degrades to
         # non-enforcing (logged) rather than crashing.
-        self._world = world_state if world_state is not None else _load_default_world_state(sv)
+        # A pre-built `world_state` wins; otherwise load from `world_state_path`
+        # (a scenario variant fixture) or the default fixture. Generic — the
+        # orchestrator never inspects which fixture it got.
+        self._world = (
+            world_state if world_state is not None
+            else _load_default_world_state(sv, world_state_path)
+        )
         self._axioms = AxiomEvaluator(service, self._world)
         self._fsm = FsmTracker(service, self._axioms, backend)
         # Reader-tool registry (Phase 5): name → deterministic callable, bound
@@ -805,18 +812,21 @@ class QuantumValidationFailed(RuntimeError):
         self.validation = validation
 
 
-def _load_default_world_state(schemaview: SchemaView):
-    """Load the demo world fixture from the sibling ontology repo. Lazy imports
-    keep the world_state package off the orchestrator's module-load path (it
-    imports back into the application layer). Returns None if the fixture is
+def _load_default_world_state(schemaview: SchemaView, path: Any | None = None):
+    """Load a world fixture from the sibling ontology repo. Lazy imports keep the
+    world_state package off the orchestrator's module-load path (it imports back
+    into the application layer). `path` overrides the default fixture (a scenario
+    may supply a variant, e.g. the Phase A3 balanced fixture) — the loader stays
+    generic; no per-scenario branching lives here. Returns None if the fixture is
     absent so tests/embeddings without a fixture still construct cleanly."""
     from ontology_service import WORLD_STATE_YAML
 
     from ..world_state import WorldState
 
-    if not WORLD_STATE_YAML.is_file():
+    fixture = path if path is not None else WORLD_STATE_YAML
+    if not fixture.is_file():
         return None
-    return WorldState.load(WORLD_STATE_YAML, schemaview)
+    return WorldState.load(fixture, schemaview)
 
 
 def _new_quantum_id() -> str:
