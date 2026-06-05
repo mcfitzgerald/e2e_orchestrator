@@ -9,7 +9,7 @@ The DoD (ontology repo `plan_of_attack.md` §5):
 A scripted test cannot vary an LLM seed, so it encodes the *structural*
 guarantee the live run rests on: the context-assembly query set is deterministic
 and independent of the resolution. We run two variants that differ ONLY in the
-chosen resolution flow (shift_to_coman vs re_request_production) and assert the
+chosen resolution flow (allocate_partial_fill vs re_request_production) and assert the
 three query flows are identical across both while the resolution differs — the
 same-queries / different-resolution signal, made deterministic. The live
 two-seed run (captured under `runs/`) is the agency half of the proof.
@@ -34,7 +34,8 @@ from e2e_orchestrator.runtime.main import SCENARIOS
 _SEED = SCENARIOS["capacity-resolution"]["seeder"]
 
 CONTEXT_QUERIES = {"check_otif_exposure", "check_promo_flexibility", "check_coman_availability"}
-RESOLUTION_FLOWS = {"shift_to_coman", "re_request_production", "request_promo_revision"}
+RESOLUTION_FLOWS = {"shift_to_coman", "re_request_production", "request_promo_revision",
+                    "allocate_partial_fill"}
 
 
 def _supply_script_choosing(resolution_flow: str, quantum: dict) -> dict:
@@ -83,11 +84,12 @@ def _resolution(events) -> str:
 
 
 async def test_phase5_same_queries_different_resolution(ontology_service):
-    # Run A — the canonical scenario (picks shift_to_coman).
+    # Run A — the canonical scenario (picks allocate_partial_fill, the reflexive
+    # holding move; coherent now that the flagship co-man is gated out on facts).
     events_a = await _run(ontology_service, supply_override=None)
 
     # Run B — same context assembly, different resolution (re_request_production
-    # to production_planning with a feasible internal ProductionRequest).
+    # to plant_scheduler with a feasible internal ProductionRequest).
     internal = {
         "request_id": "pr-internal-capres", "sku": "TP-FLAG-6OZ", "volume": 1500,
         "window_start_day": 140, "window_end_day": 146,
@@ -101,7 +103,7 @@ async def test_phase5_same_queries_different_resolution(ontology_service):
     assert _query_set(events_a) == _query_set(events_b)
 
     # Irreducible agency: the resolution differs across the two runs.
-    assert _resolution(events_a) == "shift_to_coman"
+    assert _resolution(events_a) == "allocate_partial_fill"
     assert _resolution(events_b) == "re_request_production"
     assert _resolution(events_a) != _resolution(events_b)
 

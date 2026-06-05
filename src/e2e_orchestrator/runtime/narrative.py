@@ -218,7 +218,8 @@ def _render_event(e: dict, indent: str = "    ") -> list[str]:
     return []
 
 
-_RESOLUTION_FLOWS = ("shift_to_coman", "re_request_production", "request_promo_revision")
+_RESOLUTION_FLOWS = ("shift_to_coman", "re_request_production", "request_promo_revision",
+                     "allocate_partial_fill")
 
 
 def _outcome_footer(events: list[dict]) -> list[str]:

@@ -131,13 +131,42 @@ def test_query_baseline_demand_known_sku_no_baseline_is_valid_empty(world_state,
     assert res.details.get("empty") is True
 
 
+def test_query_coman_availability_returns_gate_facts(world_state, validator):
+    # Phase A: the co-man gate FACTS, grounded — qualified / open_window / moq the
+    # agent reads to conclude viability (it is NOT handed a yes/no).
+    res = reader_tools.query_coman_availability({"sku": "TP-FLAG-6OZ", "volume": 1500}, world_state)
+    assert res.output is not None
+    # Flagship co-man is qualified but gated OUT on facts: open_window 1000 < 1500
+    # needed and moq 2000 > 1500 — a grounded agent rejects shift_to_coman here.
+    assert res.output["qualified_for_sku"] is True
+    assert res.output["open_window"] == 1000
+    assert res.output["moq"] == 2000
+    assert validator.validate("ComanAvailability", res.output).ok
+
+
+def test_query_coman_availability_unqualified_is_still_grounded(world_state, validator):
+    res = reader_tools.query_coman_availability({"sku": "MW-CLAS-500ML", "volume": 100}, world_state)
+    assert res.output is not None
+    assert res.output["qualified_for_sku"] is False
+    assert validator.validate("ComanAvailability", res.output).ok
+
+
+def test_query_coman_availability_unknown_sku_is_grounding_floor(world_state):
+    res = reader_tools.query_coman_availability({"sku": "NOPE-SKU"}, world_state)
+    assert res.output is None
+    assert res.evidence.startswith("unknown_entity")
+
+
 def test_registry_keys_match_implementation_names(ontology_service):
     # Every reader tool the role view exposes must bind to a registered callable.
+    # Includes the Phase A roles (plant_scheduler, trade) — their tools must bind
+    # too, with zero per-role wiring (the T4 generality claim, extended to readers).
     declared = {
         t.body.implementation
-        for role in ("supply_planning", "demand_planning")
+        for role in ("supply_planning", "demand_planning", "plant_scheduler", "trade")
         for t in ontology_service.tools_available_to(role)
     }
     registry = reader_tools.default_registry()
     assert "query_baseline_demand" in declared
+    assert "query_coman_availability" in declared
     assert declared <= set(registry)

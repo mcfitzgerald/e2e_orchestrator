@@ -234,7 +234,15 @@ def _capres_escalate_script(
             kwargs={
                 "playbook": "resolve_capacity_conflict",
                 "context": {"shortfall_units": 1500, "at_risk_commitment": "COM-BUL-SEC-Q2"},
-                "options": ["re_request_production", "request_promo_revision", "shift_to_coman"],
+                # All four levers the playbook offers (Session-1 added
+                # allocate_partial_fill). The list carries no ranking — the choice
+                # is the agent's judgment.
+                "options": [
+                    "re_request_production",
+                    "request_promo_revision",
+                    "shift_to_coman",
+                    "allocate_partial_fill",
+                ],
             },
         ),
         # 5. Pick ONE resolution path (judgment — scripted here per scenario).
@@ -259,17 +267,25 @@ def _capres_escalate_script(
     ]
 
 
-# Scene 6 resolution quanta — one per path.
-#   shift_to_coman: external co-man absorbs the volume (demo_narrative Scene 6).
-_COMAN_QUANTUM = {
-    "request_id": "pr-coman-capres", "sku": "TP-FLAG-6OZ", "volume": 1500,
-    "window_start_day": 140, "window_end_day": 146,
-    "assigned_plant": "COMAN-1", "assigned_line": "COMAN-1-L1", "status": "assigned",
+# Scene 6 resolution quanta — one per lever. Each selected lever hands off to the
+# role that OWNS it (Session-1 D1): re_request_production → plant_scheduler,
+# request_promo_revision → trade, allocate_partial_fill → supply_planning itself.
+#   allocate_partial_fill (the holding move, NEW): supply_planning rations the
+#   constrained available output (NJ-L1 headroom = 5000 − 3500 = 1500) across the
+#   at-risk commitments. A SupplyRequest self-flow (source == target) — a single
+#   resolving decision kept in one role; it does NOT hand constrained-capacity
+#   control to a second domain (that would be the static-world-model Tier-2
+#   trigger, deferred). This is the reflexive first move when no single lever
+#   fully clears the conflict — and the coherent pick here, since the flagship
+#   co-man is gated out on facts (open_window 1000 < 1500, moq 2000 > 1500).
+_ALLOCATE_QUANTUM = {
+    "request_id": "sr-allocate-capres", "sku": "TP-FLAG-6OZ", "volume": 1500,
+    "required_by": 146, "source_signal_ref": "PROMO-MGM-FLAG-2026Q2",
 }
 #   re_request_production: internal re-entry with a REVISED ProductionRequest.
 #   Same line (NJ-L1), volume reduced to the headroom (3500 scheduled + 1500 =
 #   5000 = rated capacity) so the line_capacity_not_exceeded guard now PASSES at
-#   production_planning's requested→assigned transition. This is the narrative's
+#   plant_scheduler's requested→assigned transition. This is the narrative's
 #   "request_production re-evaluated, axiom now passes" — the deterministic floor
 #   ACCEPTING the corrected plan, the mirror image of Scene 4 blocking the bad one.
 _REREQUEST_QUANTUM = {
@@ -277,8 +293,10 @@ _REREQUEST_QUANTUM = {
     "window_start_day": 140, "window_end_day": 146,
     "assigned_plant": "PLANT-NJ", "assigned_line": "NJ-L1", "status": "requested",
 }
-#   request_promo_revision: hand a revised TradePromotion (2x not 3x) back across
-#   the boundary to customer_development for renegotiation. Skeletal/boundary path.
+#   request_promo_revision: hand a revised TradePromotion (2x not 3x) to trade —
+#   the internal role-owner of the retailer relationship — which confirms the
+#   promo is negotiable and then crosses the boundary to customer_development via
+#   negotiate_promo_with_retailer (Session-1 D1).
 _PROMO_REVISION_QUANTUM = {
     "promo_id": "PROMO-MGM-FLAG-2026Q2", "sku": "TP-FLAG-6OZ", "retailer": "MEGALOMART",
     "volume_uplift_factor": 2.0, "promo_start_day": 142, "promo_end_day": 156,
@@ -289,23 +307,43 @@ _CAPRES_SUPPLY_PLANNING = {
     # Scene 4 ingress (unchanged): assign full uplift to NJ-L1 → overflows → the
     # capacity axiom blocks and the orchestrator reroutes escalate_capacity_conflict.
     "submit_supply_request": _CONFLICT_SUPPLY_PLANNING["submit_supply_request"],
-    # Scene 5+6: the Playbook executes here, picking shift_to_coman.
-    "escalate_capacity_conflict": _capres_escalate_script("shift_to_coman", _COMAN_QUANTUM),
+    # Scene 5+6: the Playbook executes here, picking allocate_partial_fill — the
+    # reflexive holding move, coherent with the gated-out flagship co-man. The
+    # self-flow re-invokes supply_planning with incoming_flow=allocate_partial_fill,
+    # which has no script entry here (and no "*" default) → it acks and terminates
+    # cleanly; it does NOT re-enter resolve_capacity_conflict (no self-handoff loop).
+    "escalate_capacity_conflict": _capres_escalate_script("allocate_partial_fill", _ALLOCATE_QUANTUM),
 }
 
-# Production_planning, resolution variant. On the internal-resolution path
-# (re_request_production) it receives a REVISED ProductionRequest and advances
-# ProductionRequestLifecycle requested→assigned. The `assign` transition's guard
-# is the same blocking `line_capacity_not_exceeded` axiom that fired in Scene 4 —
-# here it is re-evaluated against the corrected quantum and PASSES, so the FSM
-# advances (FSM_TRANSITIONED, guard_passed=True). The deterministic floor accepts
-# the corrected plan. (quantum_id is the runtime handle the orchestrator stamps;
+# plant_scheduler, internal-resolution variant. On the re_request_production path
+# (Session-1 D1: this lever now hands to plant_scheduler, not production_planning)
+# it receives a REVISED ProductionRequest and advances ProductionRequestLifecycle
+# requested→assigned. The `assign` transition's guard is the same blocking
+# `line_capacity_not_exceeded` axiom that fired in Scene 4 — here it is
+# re-evaluated against the corrected quantum and PASSES, so the FSM advances
+# (FSM_TRANSITIONED, guard_passed=True). The deterministic floor accepts the
+# corrected plan. (quantum_id is the runtime handle the orchestrator stamps;
 # advance_fsm defaults it to the quantum in hand, so the script doesn't name it.)
-_RESOLUTION_PRODUCTION_PLANNING = {
+_RESOLUTION_PLANT_SCHEDULER = {
     "re_request_production": [
         ScriptedToolCall(tool="read_ontology", kwargs={"query": "my_view"}),
         ScriptedToolCall(tool="read_ontology", kwargs={"query": "axioms_on_flow:request_production"}),
         ScriptedToolCall(tool="advance_fsm", kwargs={"fsm": "ProductionRequestLifecycle", "trigger": "assign"}),
+    ],
+}
+
+# trade, promo-revision variant. On the request_promo_revision path (Session-1 D1:
+# this lever now hands to trade, not straight to customer_development) trade owns
+# the retailer relationship: it grounds itself, then crosses the boundary to
+# customer_development via negotiate_promo_with_retailer (carrying the same revised
+# TradePromotion). This is the downstream Session-2 verification (b) exercises.
+_RESOLUTION_TRADE = {
+    "request_promo_revision": [
+        ScriptedToolCall(tool="read_ontology", kwargs={"query": "my_view"}),
+        ScriptedToolCall(
+            tool="handoff",
+            kwargs={"flow": "negotiate_promo_with_retailer", "quantum": _PROMO_REVISION_QUANTUM},
+        ),
     ],
 }
 
@@ -340,9 +378,19 @@ _CAPRES_COMAN = {
     "check_coman_availability": [
         ScriptedToolCall(
             tool="respond_to_query",
+            # The co-man gate FACTS, in the enriched ComanAvailability shape
+            # (Session-1: qualified_for_sku / open_window / moq, replacing the old
+            # is_qualified / has_capacity verdict-pair). These mirror the
+            # query_coman_availability reader fixture EXACTLY for TP-FLAG-6OZ: the
+            # flagship co-man is qualified but gated OUT on facts — open_window
+            # 1000 < 1500 needed, moq 2000 > 1500, 21-day lead — so a grounded
+            # agent reads them and correctly rejects shift_to_coman for THIS
+            # conflict (co-man is no longer a one-week rescue). The agent concludes
+            # viability; the responder never pre-bakes a yes/no.
             kwargs={"response": {
-                "sku": "TP-FLAG-6OZ", "is_qualified": True, "has_capacity": True,
-                "premium_cost_per_unit": 0.85, "lead_time_days": 10,
+                "sku": "TP-FLAG-6OZ", "qualified_for_sku": True,
+                "open_window": 1000, "moq": 2000,
+                "premium_cost_per_unit": 0.35, "lead_time_days": 21,
             }},
         ),
     ],
@@ -451,7 +499,10 @@ SCENARIOS: dict[str, dict] = {
                 "submit_supply_request": _CONFLICT_SUPPLY_PLANNING["submit_supply_request"],
                 "escalate_capacity_conflict": _capres_escalate_script("re_request_production", _REREQUEST_QUANTUM),
             },
-            "production_planning": _RESOLUTION_PRODUCTION_PLANNING,
+            # re_request_production now hands to plant_scheduler (Session-1 D1), an
+            # internal ontology-rendered role — scripted only in stub; a real
+            # LlmAgentHandler in llm mode (the T4 zero-edit proof).
+            "plant_scheduler": _RESOLUTION_PLANT_SCHEDULER,
         },
         "responders": {
             "logistics_planning": _CAPRES_LOGISTICS,
@@ -466,6 +517,11 @@ SCENARIOS: dict[str, dict] = {
                 "submit_supply_request": _CONFLICT_SUPPLY_PLANNING["submit_supply_request"],
                 "escalate_capacity_conflict": _capres_escalate_script("request_promo_revision", _PROMO_REVISION_QUANTUM),
             },
+            # request_promo_revision now hands to trade (Session-1 D1), which then
+            # crosses the boundary to customer_development via
+            # negotiate_promo_with_retailer. trade is an internal rendered role
+            # (stub-scripted here; real LlmAgent in llm mode — the T4 proof).
+            "trade": _RESOLUTION_TRADE,
         },
         "responders": {
             "logistics_planning": _CAPRES_LOGISTICS,
@@ -478,7 +534,8 @@ SCENARIOS: dict[str, dict] = {
     # full-uplift SupplyRequest to supply_planning, which assigns 3000 to NJ-L1;
     # the line_capacity_not_exceeded axiom fires (Scene 4) and the orchestrator
     # auto-reroutes escalate_capacity_conflict; supply_planning then runs the
-    # playbook (Scene 5) and picks shift_to_coman (Scene 6); plan_fulfillment
+    # playbook (Scene 5) and picks allocate_partial_fill (Scene 6) — the reflexive
+    # holding move, coherent with the gated-out flagship co-man; plan_fulfillment
     # re-converges on the happy path. No injection needed in stub — the scripts
     # are deterministic. (Live `--mode llm` uses --scenario capacity-resolution,
     # which INJECTS the conflict, because a reader-tool-grounded LLM sizes the

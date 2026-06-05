@@ -229,6 +229,60 @@ def query_baseline_demand(input: dict, world_state: WorldState) -> ReaderToolRes
 
 
 # ---------------------------------------------------------------------------
+# query_coman_availability  ->  ComanAvailability
+# ---------------------------------------------------------------------------
+
+
+def query_coman_availability(input: dict, world_state: WorldState) -> ReaderToolResult:
+    """Co-manufacturer gate FACTS for a SKU in the requested window:
+    `qualified_for_sku`, `open_window` (units of uncommitted co-man capacity),
+    `moq`, plus the `premium_cost_per_unit` and `lead_time_days` the agent
+    weighs. The deterministic counterpart to the `check_coman_availability`
+    query flow — both surface the *same* facts so the agent reaches the same
+    grounded conclusion whether it reads or asks (Session-1 contract).
+
+    The agent reads these and concludes whether `shift_to_coman` is viable
+    (`viable_coman_shift`); this tool never returns a pre-baked yes/no, and the
+    co-man rows are an outbound-edge shim for a real co-man capacity system
+    behind the same `scont:Tool` contract. An unknown SKU is the
+    `unknown_entity` floor; a known SKU with no co-man on record is an honest
+    grounding miss (no fabricated co-man), mirroring `query_supplier_for_sku`."""
+    sku = _entity_id(input.get("sku"), "sku_code")
+    if sku is None or world_state.get_sku(sku) is None:
+        return ReaderToolResult(output=None, evidence=f"{UNKNOWN_ENTITY}: sku={sku!r} not found in world state")
+
+    row = world_state.find("ComanAvailability", sku=sku)
+    if row is None:
+        return ReaderToolResult(
+            output=None,
+            evidence=f"{UNKNOWN_ENTITY}: no co-manufacturer on record for sku={sku!r} in world state",
+        )
+
+    output: dict[str, Any] = {
+        "sku": sku,
+        "qualified_for_sku": row.get("qualified_for_sku"),
+        "open_window": row.get("open_window"),
+        "moq": row.get("moq"),
+    }
+    # Premium / lead time are optional inputs the agent weighs — include when present.
+    if row.get("premium_cost_per_unit") is not None:
+        output["premium_cost_per_unit"] = row.get("premium_cost_per_unit")
+    if row.get("lead_time_days") is not None:
+        output["lead_time_days"] = row.get("lead_time_days")
+
+    needed = input.get("volume")
+    return ReaderToolResult(
+        output=output,
+        evidence=(
+            f"co-man for {sku}: qualified={output['qualified_for_sku']}, "
+            f"open_window={output['open_window']:g}, moq={output['moq']:g}"
+            + (f" (need {float(needed):g})" if needed is not None else "")
+        ),
+        details={"sku": sku, "needed": needed},
+    )
+
+
+# ---------------------------------------------------------------------------
 # Registry. Keys are the `implementation` contract names on the scont:Tool
 # declarations; the orchestrator binds them to these callables at boot.
 # ---------------------------------------------------------------------------
@@ -239,6 +293,7 @@ DEFAULT_READER_TOOLS: dict[str, ReaderTool] = {
     "query_commitments_in_window": query_commitments_in_window,
     "query_supplier_for_sku": query_supplier_for_sku,
     "query_baseline_demand": query_baseline_demand,
+    "query_coman_availability": query_coman_availability,
 }
 
 

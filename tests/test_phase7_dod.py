@@ -50,7 +50,8 @@ _PROMO_PAYLOAD = {
     "commitment_status": "aligned",
 }
 
-RESOLUTION_FLOWS = {"shift_to_coman", "re_request_production", "request_promo_revision"}
+RESOLUTION_FLOWS = {"shift_to_coman", "re_request_production", "request_promo_revision",
+                    "allocate_partial_fill"}
 CONTEXT_QUERIES = {"check_otif_exposure", "check_promo_flexibility", "check_coman_availability"}
 
 

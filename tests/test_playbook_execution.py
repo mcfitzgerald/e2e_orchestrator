@@ -28,7 +28,8 @@ from e2e_orchestrator.runtime.main import SCENARIOS
 _SEED = SCENARIOS["capacity-resolution"]["seeder"]
 
 CONTEXT_QUERIES = {"check_otif_exposure", "check_promo_flexibility", "check_coman_availability"}
-RESOLUTION_FLOWS = {"shift_to_coman", "re_request_production", "request_promo_revision"}
+RESOLUTION_FLOWS = {"shift_to_coman", "re_request_production", "request_promo_revision",
+                    "allocate_partial_fill"}
 
 
 def _build_orch(ontology_service, backend) -> Orchestrator:
