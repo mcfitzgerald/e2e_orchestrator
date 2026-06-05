@@ -37,7 +37,11 @@ from .._env import load_dotenv_if_present
 # is built. Idempotent; no-op if no .env exists.
 load_dotenv_if_present()
 
-from ontology_service import SUPPLY_CHAIN_DEMO_YAML, OntologyService
+from ontology_service import (
+    SUPPLY_CHAIN_DEMO_YAML,
+    WORLD_STATE_BALANCED_YAML,
+    OntologyService,
+)
 
 from ..application.agent_factory import (
     ScriptedAgentHandler,
@@ -376,6 +380,27 @@ _CAPRES_CUSTOMER_DEV = {
         ),
     ],
 }
+# Phase A3 (K2) — the LOCKED customer_development responder. Same shape as
+# _CAPRES_CUSTOMER_DEV, but the retailer has contractually locked the promo, so
+# request_promo_revision is NOT a viable lever (viable_promo_renegotiation fails:
+# contractually_locked closes the path AND neither timing nor volume can move).
+# Used by capacity-resolution-locked to close the promo lever and force the agent
+# onto an internal lever (re_request_production → plant_scheduler). This is the
+# OPERATIVE K2 mechanism: promo flexibility on this path is answered by THIS
+# responder (simulated in every mode incl. --mode llm), not read from world_state.
+_CAPRES_CUSTOMER_DEV_LOCKED = {
+    "check_promo_flexibility": [
+        ScriptedToolCall(
+            tool="respond_to_query",
+            kwargs={"response": {
+                "promo_id": "PROMO-MGM-FLAG-2026Q2", "commitment_status": "contractually_locked",
+                "can_shift_timing": False, "can_reduce_volume": False,
+                "notes": "Megalomart has contractually locked the promo for this window; "
+                         "no timing or volume change is available — renegotiation path closed.",
+            }},
+        ),
+    ],
+}
 _CAPRES_COMAN = {
     "check_coman_availability": [
         ScriptedToolCall(
@@ -531,6 +556,54 @@ SCENARIOS: dict[str, dict] = {
             "co_manufacturing": _CAPRES_COMAN,
         },
     },
+    # Phase A3 — balanced scenario variants. Same injected conflict + context
+    # assembly as `capacity-resolution`, but on the BALANCED world fixture
+    # (world_state_balanced.yaml) where CA-L1 is a grounded alternative line for
+    # the flagship — so INTERNAL re-plan is a genuinely viable lever, not only
+    # promo revision. These exist to demonstrate, live, (a) agency VARIATION
+    # across runs and (b) plant_scheduler firing — both unexercised by the
+    # determinate canonical fixture (see seed-phase-A3-balanced-variant.md).
+    #
+    # `-balanced`: both internal re-plan AND promo revision are open (aligned
+    # responder). The live agent has a real multi-lever choice; the resolution
+    # may vary by seed, and picking internal re-plan exercises plant_scheduler.
+    # In `--mode stub` it keeps the canonical allocate_partial_fill script (stub
+    # determinism is fine — variation is a LIVE property, not a fixture invariant).
+    "capacity-resolution-balanced": {
+        "seeder": inject_capacity_conflict,
+        "world_state": WORLD_STATE_BALANCED_YAML,
+        "scripts": {
+            "supply_planning": _CAPRES_SUPPLY_PLANNING,
+        },
+        "responders": {
+            "logistics_planning": _CAPRES_LOGISTICS,
+            "customer_development": _CAPRES_CUSTOMER_DEV,
+            "co_manufacturing": _CAPRES_COMAN,
+        },
+    },
+    # `-locked`: same balanced fixture, but the LOCKED customer_development
+    # responder closes the promo lever (K2). With promo revision off the table
+    # and CA-L1 open, a grounded agent is forced onto re_request_production →
+    # plant_scheduler — DETERMINISTIC plant_scheduler live, and the strong signal
+    # that the agent ABANDONS its prior attractor (request_promo_revision) because
+    # a fact closed it. In `--mode stub` the script resolves via
+    # re_request_production so the trace reads true to the forced lever.
+    "capacity-resolution-locked": {
+        "seeder": inject_capacity_conflict,
+        "world_state": WORLD_STATE_BALANCED_YAML,
+        "scripts": {
+            "supply_planning": {
+                "submit_supply_request": _CONFLICT_SUPPLY_PLANNING["submit_supply_request"],
+                "escalate_capacity_conflict": _capres_escalate_script("re_request_production", _REREQUEST_QUANTUM),
+            },
+            "plant_scheduler": _RESOLUTION_PLANT_SCHEDULER,
+        },
+        "responders": {
+            "logistics_planning": _CAPRES_LOGISTICS,
+            "customer_development": _CAPRES_CUSTOMER_DEV_LOCKED,
+            "co_manufacturing": _CAPRES_COMAN,
+        },
+    },
     # Phase 6 — the full promo-whiplash narrative from ONE seed: Scenes 1-6.
     # In stub mode the conflict is DERIVED honestly: demand_planning hands a
     # full-uplift SupplyRequest to supply_planning, which assigns 3000 to NJ-L1;
@@ -617,7 +690,15 @@ def build_scenario_orchestrator(
             overrides[role] = ScriptedAgentHandler(role, orch=None, script=script)
 
     factory = build_default_handler_factory(service, overrides=overrides, mode=mode)
-    orch = Orchestrator(service=service, backend=backend, handler_factory=factory)
+    # A scenario may pin a variant world fixture (e.g. the Phase A3 balanced
+    # fixture, which makes internal re-plan a viable lever). Generic spec key —
+    # no per-scenario branching; the orchestrator loads whatever path it's given.
+    orch = Orchestrator(
+        service=service,
+        backend=backend,
+        handler_factory=factory,
+        world_state_path=spec.get("world_state"),
+    )
     # Late-bind the orchestrator on every override that holds an internal ref.
     for h in overrides.values():
         if hasattr(h, "_orch"):
