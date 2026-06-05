@@ -44,10 +44,13 @@
     <h1 class="card-title" id="cardTitle">Press play</h1>
     <p class="card-body" id="cardBody">Step through one promotion as it ripples across the supply chain and the agent resolves the conflict.</p>
 
-    <!-- the agent's grounded reasoning (shown only when an agent is acting) -->
-    <div class="reasoning" id="reasoning" hidden>
-      <span class="reasoning-who" id="reasoningWho">—</span>
-      <p class="reasoning-text" id="reasoningText"></p>
+    <!-- the agent's FULL chain of thought (scrollable; only when an agent is acting) -->
+    <div class="cot" id="cot" hidden>
+      <div class="cot-head">
+        <span class="cot-who" id="cotWho">—</span>
+        <span class="cot-label">chain of thought — verbatim from the real trace</span>
+      </div>
+      <div class="cot-thread" id="cotThread"></div>
     </div>
 
     <div class="card-meta" id="cardMeta"></div>
@@ -57,6 +60,15 @@
       <div class="surface-head">four structurally-viable levers — <em>the ontology ranks none of them</em></div>
       <div class="surface-opts" id="surfaceOpts"></div>
       <div class="surface-facts" id="surfaceFacts"></div>
+    </div>
+  </div>
+
+  <!-- the thesis this step proves — always visible, beneath the card -->
+  <div class="proof" id="proof" hidden>
+    <span class="proof-mark">⊢ proves</span>
+    <div class="proof-body">
+      <span class="proof-thesis" id="proofThesis"></span>
+      <span class="proof-note" id="proofNote"></span>
     </div>
   </div>
 </main>

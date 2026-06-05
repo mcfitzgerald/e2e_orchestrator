@@ -22,9 +22,24 @@ The ~80-event trace is curated (in `export_demo_data.py`) into **10 steps**:
 10. re-converge the fulfillment plan
 
 Every **agent** step carries a teal *"agent reasoning"* badge, lights up the acting
-role in the rail, and shows the agent's **real words**. Every **deterministic
-backbone** step (routing, the floor, the event log) is marked *"no LLM in this
-step"* — the §2 split, made visible.
+role in the rail, and shows the agent's **full chain of thought** — every reasoning
+event and action for that beat, verbatim from the trace, in a scrollable box. Every
+**deterministic backbone** step (routing, the floor, the event log) is marked *"no
+LLM in this step"* — the §2 split, made visible.
+
+And every step is tied to the **thesis it proves**, in an always-visible callout
+beneath the card — the narrative *is* the proof:
+
+| Beat | Proves |
+|---|---|
+| floor routes the conflict in | **Deterministic backbone** — no LLM in routing or the capacity floor |
+| reads co-man for both SKUs | **Grounded agency** — reads real facts, never assumes |
+| reads the line load | **Grounded quantity** — reasons over a number it queried, not invented |
+| the three context queries | **Cross-domain grounding** — facts pulled from other domains |
+| the decision | **§2 — facts in, judgment out** — four levers, ranked by none |
+| shift to a co-man | **Agency varies with the facts** — the choice isn't scripted |
+| resolved | **Commands → events** — the run is replayable from the log (this replay *is* the log) |
+| re-converge | **The loop closes** — identity/routes/constraints all came from the ontology |
 
 ## Run it
 

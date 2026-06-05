@@ -12,6 +12,7 @@
   const boundary = new Set(D.boundary_roles || []);
   const $ = id => document.getElementById(id);
   const pretty = s => String(s || "").replace(/_/g, " ");
+  const escapeHtml = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 
   const OPT_TAG = {
     re_request_production: "internal re-plan",
@@ -96,18 +97,38 @@
 
     $("cardTitle").innerHTML = s.title;
 
-    // body: system steps carry a descriptive body; agent steps carry reasoning
+    // body: system steps carry a descriptive body; agent steps carry the CoT
     const body = $("cardBody");
     if (s.body) { body.hidden = false; body.innerHTML = s.body; } else { body.hidden = true; }
 
-    // reasoning block (the agent's REAL words)
-    const reasoning = $("reasoning");
-    if (s.reasoning) {
-      reasoning.hidden = false;
-      $("reasoningWho").textContent = `${s.actor} —`;
-      $("reasoningText").textContent = "“" + s.reasoning + "”";
+    // chain of thought (the agent's FULL real reasoning + actions, scrollable)
+    const cot = $("cot");
+    const thoughts = s.thoughts || [];
+    if (thoughts.length) {
+      cot.hidden = false;
+      $("cotWho").textContent = s.actor;
+      const thread = $("cotThread"); thread.innerHTML = "";
+      thoughts.forEach(t => {
+        const row = document.createElement("div");
+        row.className = "cot-row " + (t.t === "think" ? "think" : "act");
+        row.innerHTML = t.t === "think"
+          ? `<span class="cot-q">“</span>${escapeHtml(t.text)}<span class="cot-q">”</span>`
+          : `<span class="cot-arrow">→</span>${escapeHtml(t.text)}`;
+        thread.appendChild(row);
+      });
+      thread.scrollTop = 0;
     } else {
-      reasoning.hidden = true;
+      cot.hidden = true;
+    }
+
+    // the thesis this step proves
+    const proof = $("proof");
+    if (s.proof) {
+      proof.hidden = false;
+      $("proofThesis").textContent = s.proof.thesis;
+      $("proofNote").textContent = s.proof.note;
+    } else {
+      proof.hidden = true;
     }
 
     // meta chips

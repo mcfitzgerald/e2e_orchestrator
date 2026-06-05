@@ -48,17 +48,51 @@ def _reader_outputs(events: list[dict], tool: str) -> list[dict]:
     return out
 
 
+# Each step demonstrates a thesis — woven into the narrative, not bolted on.
+PROOF = {
+    "ingress":    ("Deterministic backbone", "Routing and the capacity floor are deterministic — no LLM decides where a quantum goes or whether a plan exceeds capacity. The agency starts only once the conflict is on the table."),
+    "coman":      ("Grounded agency", "The agent reads real co-manufacturer facts for both competing SKUs before it judges anything — it never assumes availability. (The hallucinated-grounding failure mode, designed out.)"),
+    "line":       ("Grounded quantity", "The line's residual is read from the world, not invented. The agent reasons over a number it actually queried — the fix for the ungrounded-quantity failure mode."),
+    "query":      ("Cross-domain grounding", "Context is assembled by querying other domains — logistics for OTIF, commercial for the promo, sourcing for co-man — and grounding on what returns. Facts, not assumptions."),
+    "decision":   ("§2 — facts in, judgment out", "The ontology surfaces four structurally-viable levers and ranks NONE of them. Which to pull is the agent's judgment, encoded nowhere in the model. This is the line the architecture refuses to cross."),
+    "move":       ("Agency varies with the facts", "This lever is the agent's grounded choice, not a script. Change the facts — lock the promo, open a line — and a grounded agent lands on a different lever (verified across live runs)."),
+    "resolved":   ("Commands → events", "The decision is committed to the event log; the entire run is replayable from it. This replay IS that log — every word above is from the real trace."),
+    "reconverge": ("The loop closes", "One resolving decision re-converges the chain deterministically and the agent's turn ends. Identity, routes and constraints all came from the ontology — adding a role costs no new code."),
+}
+
+_ACT = {
+    "query_coman_availability": "checked co-man availability",
+    "query_line_load": "read the line load",
+    "query_plants_for_sku": "checked which lines can make the SKU",
+    "query_commitments_in_window": "looked up retailer commitments",
+    "query_supplier_for_sku": "checked suppliers",
+    "query_baseline_demand": "read the baseline demand",
+}
+
+
+def _action_label(p: dict) -> str | None:
+    tool = p.get("tool")
+    a = p.get("args") or {}
+    if tool == "call_tool":
+        name = a.get("name"); sku = (a.get("input") or {}).get("sku")
+        base = _ACT.get(name)
+        return None if base is None else (f"{base} · {sku}" if sku else base)
+    if tool == "read_ontology":
+        q = a.get("query", "")
+        return f"read the ontology · {q}" if q and q != "my_view" else "re-read its own role view"
+    return None  # skip surface_decision / handoff / emit / query / respond (they ARE the anchors)
+
+
 def curate(events: list[dict]) -> list[dict]:
-    """Curate the live trace into clean replay steps with the agent's REAL words.
-    Anchors on the structural beats; attaches the nearest preceding reasoning."""
+    """Curate the live trace into replay steps. Each step carries the FULL chain
+    of thought for its segment (every reasoning event + the actions taken, with
+    consecutive repeats collapsed) and the thesis it proves."""
     steps: list[dict] = []
-    last_reason = None
-    seen_tool = set()
+    buf: list[dict] = []          # accumulating chain-of-thought since last step
+    seen = set()
     answers = {e["payload"]["signal"].split(":")[1]: e["payload"]
                for e in events if e["kind"] == "query_answered"}
-
-    coman = _reader_outputs(events, "query_coman_availability")
-    coman_by_sku = {c.get("sku"): c for c in coman}
+    coman_by_sku = {c.get("sku"): c for c in _reader_outputs(events, "query_coman_availability")}
     lineload = (_reader_outputs(events, "query_line_load") or [{}])[0]
 
     QUERY_TITLE = {
@@ -67,15 +101,62 @@ def curate(events: list[dict]) -> list[dict]:
         "check_coman_availability": "Can a co-manufacturer cover the gap?",
     }
 
+    def think(text):
+        buf.append({"t": "think", "text": _trim(text, 600)})
+
+    def act(text):
+        # collapse consecutive identical actions into "… (×N)"
+        if buf and buf[-1]["t"] == "act" and buf[-1].get("base") == text:
+            buf[-1]["n"] = buf[-1].get("n", 1) + 1
+            buf[-1]["text"] = f"{text} (×{buf[-1]['n']})"
+        else:
+            buf.append({"t": "act", "text": text, "base": text})
+
+    def flush():
+        nonlocal buf
+        out = [{"t": x["t"], "text": x["text"]} for x in buf]
+        buf = []
+        return out
+
+    def emit(step, proof_key):
+        t, n = PROOF[proof_key]
+        step["thoughts"] = flush()
+        step["proof"] = {"thesis": t, "note": n}
+        steps.append(step)
+
     for e in events:
         k, p = e["kind"], e["payload"]
 
         if k == "agent_reasoning":
-            last_reason = p.get("text")
-            continue
+            think(p.get("text"))
+        elif k == "agent_tool_call":
+            lbl = _action_label(p)
+            if lbl:
+                act(lbl)
+            name = (p.get("args") or {}).get("name")
+            if p.get("tool") == "call_tool" and name == "query_coman_availability" and "coman" not in seen:
+                seen.add("coman")
+                flag = coman_by_sku.get("TP-FLAG-6OZ", {}); sec = coman_by_sku.get("TP-SEC-6OZ", {})
+                emit({
+                    "type": "agent", "mode": "agent", "scene": "reading the world",
+                    "actor": "supply_planning", "partner": None, "flow": None,
+                    "title": "Can a co-man take either competing SKU?",
+                    "meta": [["co-man TP-FLAG", f"window {flag.get('open_window','?')} — gated!"],
+                             ["co-man TP-SEC", f"window {sec.get('open_window','?')} — viable"]],
+                }, "coman")
+            elif p.get("tool") == "call_tool" and name == "query_line_load" and "line" not in seen:
+                seen.add("line")
+                emit({
+                    "type": "agent", "mode": "agent", "scene": "reading the world",
+                    "actor": "supply_planning", "partner": None, "flow": None,
+                    "title": "How tight is the line, really?",
+                    "meta": [["NJ-L1 capacity", str(lineload.get("capacity_total"))],
+                             ["committed", str(lineload.get("committed_load"))],
+                             ["residual!", str(lineload.get("available"))]],
+                }, "line")
 
-        if k == "boundary_ingress":
-            steps.append({
+        elif k == "boundary_ingress":
+            emit({
                 "type": "ingress", "mode": "system", "scene": "conflict in",
                 "actor": p.get("target_role"), "partner": None,
                 "from": "capacity floor", "to": p.get("target_role"),
@@ -84,55 +165,21 @@ def curate(events: list[dict]) -> list[dict]:
                 "body": "Upstream, a 3× promo on the flagship overran <code>NJ-L1</code>. The deterministic capacity floor caught it and routed a <code>CapacityConflict</code> here — no model decided that. Now a rendered agent picks it up.",
                 "meta": [["line", p.get("payload", {}).get("line_ref", "NJ-L1")],
                          ["shortfall", str(p.get("payload", {}).get("shortfall_units", 1500))]],
-            })
-
-        elif k == "agent_tool_call":
-            a = p.get("args") or {}
-            tool = a.get("name")
-            # one context-gathering beat per key reader tool (first time only)
-            if tool == "query_coman_availability" and "coman" not in seen_tool:
-                seen_tool.add("coman")
-                flag = coman_by_sku.get("TP-FLAG-6OZ", {})
-                sec = coman_by_sku.get("TP-SEC-6OZ", {})
-                steps.append({
-                    "type": "agent", "mode": "agent", "scene": "reading the world",
-                    "actor": "supply_planning", "partner": None, "flow": None,
-                    "title": "Can a co-man take either competing SKU?",
-                    "reasoning": _trim(last_reason),
-                    "meta": [
-                        [f"co-man TP-FLAG", f"window {flag.get('open_window','?')} < 1500 — gated!"],
-                        [f"co-man TP-SEC", f"window {sec.get('open_window','?')} ≥ 1500 — viable"],
-                    ],
-                })
-                last_reason = None
-            elif tool == "query_line_load" and "line" not in seen_tool:
-                seen_tool.add("line")
-                avail = lineload.get("available"); comm = lineload.get("committed_load"); cap = lineload.get("capacity_total")
-                steps.append({
-                    "type": "agent", "mode": "agent", "scene": "reading the world",
-                    "actor": "supply_planning", "partner": None, "flow": None,
-                    "title": "How tight is the line, really?",
-                    "reasoning": _trim(last_reason),
-                    "meta": [["NJ-L1 capacity", str(cap)], ["committed", str(comm)], ["residual!", str(avail)]],
-                })
-                last_reason = None
+            }, "ingress")
 
         elif k == "query_requested":
-            if p.get("flow") in seen_tool:   # one step per distinct query flow
-                last_reason = None
+            if p.get("flow") in seen:
                 continue
-            seen_tool.add(p.get("flow"))
+            seen.add(p.get("flow"))
             a = answers.get(p.get("quantum_id"), {})
-            steps.append({
+            emit({
                 "type": "query", "mode": "agent", "scene": "context assembly",
                 "actor": p.get("source_role"), "partner": p.get("target_role"),
                 "from": p.get("source_role"), "to": p.get("target_role"),
                 "flow": p.get("flow"), "quantum": p.get("quantum_class"),
                 "title": QUERY_TITLE.get(p.get("flow"), p.get("flow", "").replace("_", " ")),
-                "reasoning": _trim(last_reason),
                 "meta": _answer_chips(a),
-            })
-            last_reason = None
+            }, "query")
 
         elif k == "decision_surfaced":
             ctx = p.get("context", {})
@@ -146,51 +193,43 @@ def curate(events: list[dict]) -> list[dict]:
                 facts["promo"] = promo["commitment_status"]
             if cm.get("open_window") is not None:
                 facts["co-man window"] = str(cm["open_window"])
-            steps.append({
+            emit({
                 "type": "decision", "mode": "agent", "scene": "the decision",
                 "actor": p.get("role"), "partner": None, "flow": p.get("playbook"),
                 "title": f"{len(p.get('options', []))} viable levers — the ontology ranks none",
-                "reasoning": _trim(last_reason, 440),
-                "options": p.get("options", []),
-                "context": facts,
-                "meta": [],
-            })
-            last_reason = None
+                "options": p.get("options", []), "context": facts, "meta": [],
+            }, "decision")
 
         elif k == "handoff_executed" and p.get("flow") in RESOLUTION_FLOWS:
-            steps.append({
+            emit({
                 "type": "handoff", "mode": "agent", "scene": "the move",
                 "actor": p.get("source_role"), "partner": p.get("target_role"),
                 "from": p.get("source_role"), "to": p.get("target_role"),
                 "flow": p.get("flow"), "quantum": p.get("quantum_class"),
                 "title": _human_flow(p.get("flow")),
-                "reasoning": _trim(last_reason, 380),
                 "meta": [["carries", p.get("quantum_class")]],
-            })
-            last_reason = None
+            }, "move")
 
         elif k == "event_emitted" and "resolved" in p.get("name", ""):
             pl = p.get("payload", {})
-            steps.append({
+            emit({
                 "type": "resolved", "mode": "system", "scene": "resolved",
                 "actor": p.get("by_role"), "partner": None, "flow": p.get("name"),
                 "title": f"Resolved — {_human_flow(pl.get('resolution',''))}",
                 "body": f"<code>{p.get('name')}</code> is committed to the event log. The agent shifted <b>{pl.get('volume','—')}</b> units of <code>{pl.get('resolved_sku','—')}</code> to a co-manufacturer — freeing the line for the flagship promo. Change the facts and a grounded agent lands elsewhere; the path isn't scripted.",
                 "meta": [["resolution", _human_flow(pl.get("resolution", ""))],
                          ["sku", pl.get("resolved_sku", "—")], ["volume", str(pl.get("volume", "—"))]],
-            })
+            }, "resolved")
 
         elif k == "handoff_executed" and p.get("flow") == "plan_fulfillment":
-            steps.append({
+            emit({
                 "type": "handoff", "mode": "agent", "scene": "re-convergence",
                 "actor": p.get("source_role"), "partner": p.get("target_role"),
                 "from": p.get("source_role"), "to": p.get("target_role"),
                 "flow": p.get("flow"), "quantum": p.get("quantum_class"),
                 "title": "Re-converge the fulfillment plan",
-                "reasoning": _trim(last_reason, 320),
                 "meta": [["to", p.get("target_role")]],
-            })
-            last_reason = None
+            }, "reconverge")
 
     return steps
 

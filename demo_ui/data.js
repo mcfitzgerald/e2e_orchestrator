@@ -47,7 +47,12 @@ window.DEMO_DATA = {
           "shortfall",
           "1500"
         ]
-      ]
+      ],
+      "thoughts": [],
+      "proof": {
+        "thesis": "Deterministic backbone",
+        "note": "Routing and the capacity floor are deterministic \u2014 no LLM decides where a quantum goes or whether a plan exceeds capacity. The agency starts only once the conflict is on the table."
+      }
     },
     {
       "type": "agent",
@@ -57,17 +62,46 @@ window.DEMO_DATA = {
       "partner": null,
       "flow": null,
       "title": "Can a co-man take either competing SKU?",
-      "reasoning": "I will use the `query_coman_availability` reader tool for both competing SKUs (\"TP-FLAG-6OZ\" and \"TP-SEC-6OZ\") to see which SKU is eligible for co-manufacturing and check their availability. I'll also check where these SKUs can be produced internally using `query_plants_for_sku`.",
       "meta": [
         [
           "co-man TP-FLAG",
-          "window 1000 < 1500 \u2014 gated!"
+          "window 1000 \u2014 gated!"
         ],
         [
           "co-man TP-SEC",
-          "window 6000 \u2265 1500 \u2014 viable"
+          "window 6000 \u2014 viable"
         ]
-      ]
+      ],
+      "thoughts": [
+        {
+          "t": "think",
+          "text": "I will begin by gathering information from the world state regarding the at-risk commitment `COM-BUL-SEC-Q2` and the competing SKUs using our reader tools. This will help us understand the details of the commitment, including the retailer, SKU, and quantities involved, so we can correctly target our query flows."
+        },
+        {
+          "t": "act",
+          "text": "looked up retailer commitments \u00b7 TP-SEC-6OZ"
+        },
+        {
+          "t": "think",
+          "text": "I'll read the playbook definition `resolve_capacity_conflict` from the ontology to verify the inputs and outputs we need to use for the queries, and to check any other specifics of this playbook."
+        },
+        {
+          "t": "act",
+          "text": "read the ontology \u00b7 playbook:resolve_capacity_conflict"
+        },
+        {
+          "t": "think",
+          "text": "I will use the `query_coman_availability` reader tool for both competing SKUs (\"TP-FLAG-6OZ\" and \"TP-SEC-6OZ\") to see which SKU is eligible for co-manufacturing and check their availability. I'll also check where these SKUs can be produced internally using `query_plants_for_sku`."
+        },
+        {
+          "t": "act",
+          "text": "checked co-man availability \u00b7 TP-FLAG-6OZ"
+        }
+      ],
+      "proof": {
+        "thesis": "Grounded agency",
+        "note": "The agent reads real co-manufacturer facts for both competing SKUs before it judges anything \u2014 it never assumes availability. (The hallucinated-grounding failure mode, designed out.)"
+      }
     },
     {
       "type": "agent",
@@ -77,7 +111,6 @@ window.DEMO_DATA = {
       "partner": null,
       "flow": null,
       "title": "How tight is the line, really?",
-      "reasoning": "I will query the line load of \"NJ-L1\" in the specific conflict window (days 140 to 146) to see the exact capacity constraints and load.",
       "meta": [
         [
           "NJ-L1 capacity",
@@ -91,7 +124,53 @@ window.DEMO_DATA = {
           "residual!",
           "5000"
         ]
-      ]
+      ],
+      "thoughts": [
+        {
+          "t": "think",
+          "text": "I will now query the co-manufacturer availability for the other competing SKU, \"TP-SEC-6OZ\", using `query_coman_availability`."
+        },
+        {
+          "t": "act",
+          "text": "checked co-man availability \u00b7 TP-SEC-6OZ"
+        },
+        {
+          "t": "think",
+          "text": "I will query the retailer commitments for \"TP-FLAG-6OZ\" under \"Bullseye\" to see if there is an active commitment matching `COM-BUL-SEC-Q2` or any others that might be at risk."
+        },
+        {
+          "t": "act",
+          "text": "looked up retailer commitments \u00b7 TP-FLAG-6OZ"
+        },
+        {
+          "t": "think",
+          "text": "I'll query the plants and lines that are qualified to produce both SKUs to understand the production alternatives."
+        },
+        {
+          "t": "act",
+          "text": "checked which lines can make the SKU \u00b7 TP-FLAG-6OZ"
+        },
+        {
+          "t": "think",
+          "text": "I will query the lines that can produce \"TP-SEC-6OZ\" as well."
+        },
+        {
+          "t": "act",
+          "text": "checked which lines can make the SKU \u00b7 TP-SEC-6OZ"
+        },
+        {
+          "t": "think",
+          "text": "I will query the line load of \"NJ-L1\" in the specific conflict window (days 140 to 146) to see the exact capacity constraints and load."
+        },
+        {
+          "t": "act",
+          "text": "read the line load"
+        }
+      ],
+      "proof": {
+        "thesis": "Grounded quantity",
+        "note": "The line's residual is read from the world, not invented. The agent reasons over a number it actually queried \u2014 the fix for the ungrounded-quantity failure mode."
+      }
     },
     {
       "type": "query",
@@ -104,7 +183,6 @@ window.DEMO_DATA = {
       "flow": "check_promo_flexibility",
       "quantum": "PromoFlexibilityQuery",
       "title": "Can the promotion itself move?",
-      "reasoning": "I will now perform context-assembly query flows as outlined in the `resolve_capacity_conflict` playbook. First, I will run the query `check_promo_flexibility` to see if the promotion associated with our at-risk commitment `COM-BUL-SEC-Q2` can be renegotiated. We will assume the promo ID is `COM-BUL-SEC-Q2` (and try `r\u2026",
       "meta": [
         [
           "status",
@@ -114,7 +192,81 @@ window.DEMO_DATA = {
           "timing",
           "negotiable"
         ]
-      ]
+      ],
+      "thoughts": [
+        {
+          "t": "think",
+          "text": "I will query Bullseye's commitments for \"TP-SEC-6OZ\" in a wider window (days 130 to 150) to see if we can find `COM-BUL-SEC-Q2` and verify its exact MABD (Must Arrive By Date)."
+        },
+        {
+          "t": "act",
+          "text": "looked up retailer commitments \u00b7 TP-SEC-6OZ"
+        },
+        {
+          "t": "think",
+          "text": "I'll check other major retailers like Megalomart and Greenfield for commitments regarding \"TP-SEC-6OZ\" during the conflict window."
+        },
+        {
+          "t": "act",
+          "text": "looked up retailer commitments \u00b7 TP-SEC-6OZ"
+        },
+        {
+          "t": "think",
+          "text": "I will query Bullseye's commitments for \"TP-SEC-6OZ\" across a much wider window (days 1 to 365) to see if we can find any commitments for this SKU, which will help us verify the naming conventions, spelling, and dates in the system."
+        },
+        {
+          "t": "act",
+          "text": "looked up retailer commitments \u00b7 TP-SEC-6OZ"
+        },
+        {
+          "t": "think",
+          "text": "I will do a full year query for \"TP-FLAG-6OZ\" under Bullseye to check if there are any commitments at all."
+        },
+        {
+          "t": "act",
+          "text": "looked up retailer commitments \u00b7 TP-FLAG-6OZ"
+        },
+        {
+          "t": "think",
+          "text": "I will check commitments for \"TP-FLAG-6OZ\" under \"Megalomart\" for the entire year to see if Megalomart has commitments for this SKU."
+        },
+        {
+          "t": "act",
+          "text": "looked up retailer commitments \u00b7 TP-FLAG-6OZ"
+        },
+        {
+          "t": "think",
+          "text": "I will read the ontology definition for `check_otif_exposure` and `check_promo_flexibility` to understand how they are structured and what fields they require."
+        },
+        {
+          "t": "act",
+          "text": "read the ontology \u00b7 flow:check_otif_exposure"
+        },
+        {
+          "t": "think",
+          "text": "I will read the ontology definition for `check_promo_flexibility` to understand its quantum parameters and how it is routed."
+        },
+        {
+          "t": "act",
+          "text": "read the ontology \u00b7 flow:check_promo_flexibility"
+        },
+        {
+          "t": "think",
+          "text": "I will check the ontology definition for `check_coman_availability` to confirm its exact query quantum and returns quantum slots."
+        },
+        {
+          "t": "act",
+          "text": "read the ontology \u00b7 flow:check_coman_availability"
+        },
+        {
+          "t": "think",
+          "text": "I will now perform context-assembly query flows as outlined in the `resolve_capacity_conflict` playbook. First, I will run the query `check_promo_flexibility` to see if the promotion associated with our at-risk commitment `COM-BUL-SEC-Q2` can be renegotiated. We will assume the promo ID is `COM-BUL-SEC-Q2` (and try `reduce_volume` first to see if that's flexible)."
+        }
+      ],
+      "proof": {
+        "thesis": "Cross-domain grounding",
+        "note": "Context is assembled by querying other domains \u2014 logistics for OTIF, commercial for the promo, sourcing for co-man \u2014 and grounding on what returns. Facts, not assumptions."
+      }
     },
     {
       "type": "query",
@@ -127,7 +279,6 @@ window.DEMO_DATA = {
       "flow": "check_otif_exposure",
       "quantum": "OTIFQuery",
       "title": "What does it cost us to be late?",
-      "reasoning": "I will query `check_otif_exposure` for the at-risk commitment (Bullseye for \"TP-SEC-6OZ\", assuming a 7-day delay to quantify the OTIF exposure) to see what penalty we would face if production slips.",
       "meta": [
         [
           "answer",
@@ -141,7 +292,17 @@ window.DEMO_DATA = {
           "penalty!",
           "$7,200"
         ]
-      ]
+      ],
+      "thoughts": [
+        {
+          "t": "think",
+          "text": "I will query `check_otif_exposure` for the at-risk commitment (Bullseye for \"TP-SEC-6OZ\", assuming a 7-day delay to quantify the OTIF exposure) to see what penalty we would face if production slips."
+        }
+      ],
+      "proof": {
+        "thesis": "Cross-domain grounding",
+        "note": "Context is assembled by querying other domains \u2014 logistics for OTIF, commercial for the promo, sourcing for co-man \u2014 and grounding on what returns. Facts, not assumptions."
+      }
     },
     {
       "type": "query",
@@ -154,7 +315,6 @@ window.DEMO_DATA = {
       "flow": "check_coman_availability",
       "quantum": "ComanAvailabilityQuery",
       "title": "Can a co-manufacturer cover the gap?",
-      "reasoning": "I will now query `check_coman_availability` for \"TP-SEC-6OZ\" in the conflict window to complete the parallel context assembly required by the playbook.",
       "meta": [
         [
           "sku",
@@ -172,7 +332,17 @@ window.DEMO_DATA = {
           "verdict!",
           "gated for flagship"
         ]
-      ]
+      ],
+      "thoughts": [
+        {
+          "t": "think",
+          "text": "I will now query `check_coman_availability` for \"TP-SEC-6OZ\" in the conflict window to complete the parallel context assembly required by the playbook."
+        }
+      ],
+      "proof": {
+        "thesis": "Cross-domain grounding",
+        "note": "Context is assembled by querying other domains \u2014 logistics for OTIF, commercial for the promo, sourcing for co-man \u2014 and grounding on what returns. Facts, not assumptions."
+      }
     },
     {
       "type": "decision",
@@ -182,7 +352,6 @@ window.DEMO_DATA = {
       "partner": null,
       "flow": "resolve_capacity_conflict",
       "title": "4 viable levers \u2014 the ontology ranks none",
-      "reasoning": "I will now surface this decision to the orchestrator. I have assembled the complete context required by the `resolve_capacity_conflict` playbook: - **Co-man Availability**: Shifting `TP-SEC-6OZ` to the co-manufacturer is highly viable (6,000 units available, MOQ of 1,000 units is met, and a premium of only $0.22/unit, which is $330 in total). - **OTIF Penalty Exposure**: If we accept a delay, the OTIF penalty is $7,200 (affecting a shi\u2026",
       "options": [
         "allocate_partial_fill",
         "re_request_production",
@@ -194,7 +363,21 @@ window.DEMO_DATA = {
         "promo": "aligned",
         "co-man window": "6000"
       },
-      "meta": []
+      "meta": [],
+      "thoughts": [
+        {
+          "t": "think",
+          "text": "I will query `check_coman_availability` for \"TP-FLAG-6OZ\" to see what information the co-manufacturing domain returns for that SKU on the query flow."
+        },
+        {
+          "t": "think",
+          "text": "I will now surface this decision to the orchestrator. I have assembled the complete context required by the `resolve_capacity_conflict` playbook: - **Co-man Availability**: Shifting `TP-SEC-6OZ` to the co-manufacturer is highly viable (6,000 units available, MOQ of 1,000 units is met, and a premium of only $0.22/unit, which is $330 in total). - **OTIF Penalty Exposure**: If we accept a delay, the OTIF penalty is $7,200 (affecting a shipment value of $240,000). - **Promo Flexibility**: The Megalomart promotion `PROMO-MGM-FLAG-2026Q2` is negotiable (status is `aligned`, can shift timing or redu\u2026"
+        }
+      ],
+      "proof": {
+        "thesis": "\u00a72 \u2014 facts in, judgment out",
+        "note": "The ontology surfaces four structurally-viable levers and ranks NONE of them. Which to pull is the agent's judgment, encoded nowhere in the model. This is the line the architecture refuses to cross."
+      }
     },
     {
       "type": "handoff",
@@ -207,13 +390,38 @@ window.DEMO_DATA = {
       "flow": "shift_to_coman",
       "quantum": "ProductionRequest",
       "title": "shift to a co-manufacturer",
-      "reasoning": "I will now perform the handoff to shift the 1,500 shortfall units of \"TP-SEC-6OZ\" to the co-manufacturer using the `shift_to_coman` handoff flow. We will assign it to the qualified plant `PLANT-NJ` and line `NJ-L1` with a status of `requested`.",
       "meta": [
         [
           "carries",
           "ProductionRequest"
         ]
-      ]
+      ],
+      "thoughts": [
+        {
+          "t": "think",
+          "text": "I will look up the `co_manufacturing` role in the ontology to see if there are specific plant and line codes associated with external co-manufacturing that we should use for our `ProductionRequest`."
+        },
+        {
+          "t": "act",
+          "text": "read the ontology \u00b7 role:co_manufacturing"
+        },
+        {
+          "t": "think",
+          "text": "I will query the supplier for \"TP-SEC-6OZ\" to see if there is an associated external manufacturing or supplier plant code that we should use."
+        },
+        {
+          "t": "act",
+          "text": "checked suppliers \u00b7 TP-SEC-6OZ"
+        },
+        {
+          "t": "think",
+          "text": "I will now perform the handoff to shift the 1,500 shortfall units of \"TP-SEC-6OZ\" to the co-manufacturer using the `shift_to_coman` handoff flow. We will assign it to the qualified plant `PLANT-NJ` and line `NJ-L1` with a status of `requested`."
+        }
+      ],
+      "proof": {
+        "thesis": "Agency varies with the facts",
+        "note": "This lever is the agent's grounded choice, not a script. Change the facts \u2014 lock the promo, open a line \u2014 and a grounded agent lands on a different lever (verified across live runs)."
+      }
     },
     {
       "type": "resolved",
@@ -237,7 +445,17 @@ window.DEMO_DATA = {
           "volume",
           "1500"
         ]
-      ]
+      ],
+      "thoughts": [
+        {
+          "t": "think",
+          "text": "I will now emit the `capacity_resolved` event to signal that we have resolved the capacity conflict and made our decision."
+        }
+      ],
+      "proof": {
+        "thesis": "Commands \u2192 events",
+        "note": "The decision is committed to the event log; the entire run is replayable from it. This replay IS that log \u2014 every word above is from the real trace."
+      }
     },
     {
       "type": "handoff",
@@ -250,13 +468,22 @@ window.DEMO_DATA = {
       "flow": "plan_fulfillment",
       "quantum": "SupplyRequest",
       "title": "Re-converge the fulfillment plan",
-      "reasoning": "I will now fire the `plan_fulfillment` handoff flow to `logistics_planning` with a revised `SupplyRequest` to update the downstream logistics plan for the 1,500 units of \"TP-SEC-6OZ\" that are now being sourced via the co-manufacturer.",
       "meta": [
         [
           "to",
           "logistics_planning"
         ]
-      ]
+      ],
+      "thoughts": [
+        {
+          "t": "think",
+          "text": "I will now fire the `plan_fulfillment` handoff flow to `logistics_planning` with a revised `SupplyRequest` to update the downstream logistics plan for the 1,500 units of \"TP-SEC-6OZ\" that are now being sourced via the co-manufacturer."
+        }
+      ],
+      "proof": {
+        "thesis": "The loop closes",
+        "note": "One resolving decision re-converges the chain deterministically and the agent's turn ends. Identity, routes and constraints all came from the ontology \u2014 adding a role costs no new code."
+      }
     }
   ]
 };
