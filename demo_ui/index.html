@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Whiplash — promotional intent vs. supply capability</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..600&family=Hanken+Grotesk:wght@300..700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+
+<!-- ───────────────────────── masthead ───────────────────────── -->
+<header class="masthead">
+  <div class="wrap mast-row">
+    <div class="mast-mark">
+      <span class="mark-glyph">⟲</span>
+      <span class="mark-word">WHIPLASH</span>
+    </div>
+    <nav class="mast-nav">
+      <a href="#q1">The model</a>
+      <a href="#q2">The agent</a>
+      <a href="#close">The argument</a>
+    </nav>
+    <div class="mast-meta" id="mastMeta">ontology-driven · deterministic backbone</div>
+  </div>
+</header>
+
+<!-- ───────────────────────── hero ───────────────────────── -->
+<section class="hero wrap">
+  <div class="hero-kicker reveal">A supply-chain situation, the way it actually unfolds</div>
+  <h1 class="hero-title">
+    <span class="reveal d1">A promo lands.</span>
+    <span class="reveal d2">Supply scrambles.</span>
+    <span class="reveal d3 emph">The model reasons before commitments lock in.</span>
+  </h1>
+  <p class="hero-lede reveal d4">
+    Sales aligns a <strong>3&times;</strong> promotion on the flagship SKU. Six weeks out, that
+    promise collides with a line already running at <strong>90% of capacity</strong>. The same
+    week, a retailer&rsquo;s standing order sits on the very line the promo wants. This is the
+    bullwhip at its source &mdash; and it&rsquo;s a Tuesday.
+  </p>
+  <div class="hero-questions reveal d5">
+    <div class="hq">
+      <span class="hq-n">Q1</span>
+      <span class="hq-t">What is an ontology &mdash; and is it legible?</span>
+      <a class="hq-go" href="#q1">see the model &rarr;</a>
+    </div>
+    <div class="hq">
+      <span class="hq-n">Q2</span>
+      <span class="hq-t">What is the agentic strategy?</span>
+      <a class="hq-go" href="#q2">watch it decide &rarr;</a>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────── Q1 — the model ───────────────────────── -->
+<section id="q1" class="section wrap">
+  <div class="sec-head">
+    <div class="sec-eyebrow"><span class="sec-q">Q1</span> the model is legible</div>
+    <h2 class="sec-title">If the promo slips a&nbsp;week, <em>who&rsquo;s affected?</em></h2>
+    <p class="sec-sub">
+      Not a guess &mdash; a traversal. The ontology declares every role, flow, quantum and
+      playbook and how they connect. Ask it the blast radius of a one-week slip on the
+      <span class="chip">TradePromotion</span> and it answers from <em>structure</em>, before
+      anything runs.
+    </p>
+  </div>
+
+  <div class="blast">
+    <div class="blast-stage">
+      <svg id="blastSvg" viewBox="0 0 720 720" role="img" aria-label="Impact blast radius graph"></svg>
+      <div class="blast-center-label">
+        <span class="bcl-kicker">epicenter</span>
+        <span class="bcl-name">TradePromotion</span>
+        <span class="bcl-sub">Megalomart · flagship · slip&nbsp;1&nbsp;wk</span>
+      </div>
+      <div id="blastTip" class="blast-tip" hidden></div>
+    </div>
+
+    <aside class="blast-side">
+      <div class="bs-count">
+        <span class="bs-num" id="impactCount">—</span>
+        <span class="bs-lbl">connected elements<br/>reachable from one promotion</span>
+      </div>
+      <ul class="bs-legend" id="blastLegend"></ul>
+      <div class="bs-note" id="impactNote"></div>
+      <div class="bs-inspect" id="roleInspect" hidden>
+        <div class="ri-head">
+          <span class="ri-kind">role view</span>
+          <span class="ri-name" id="riName">—</span>
+        </div>
+        <pre class="ri-body" id="riBody"></pre>
+      </div>
+    </aside>
+  </div>
+  <p class="sec-foot">
+    Hover a node to trace <em>why</em> it&rsquo;s reachable. Click a <span class="dot-inline" data-kind="role"></span>role
+    to read the identity the ontology renders for it &mdash; byte-for-byte the prompt the agent runs on.
+  </p>
+</section>
+
+<!-- ───────────────────────── Q2 — the agent ───────────────────────── -->
+<section id="q2" class="section wrap alt">
+  <div class="sec-head">
+    <div class="sec-eyebrow"><span class="sec-q">Q2</span> the agent grounds, then decides</div>
+    <h2 class="sec-title">One signal in. <em>A judgment out.</em></h2>
+    <p class="sec-sub">
+      The orchestrator is deterministic &mdash; routing, validation, the capacity floor. The
+      <em>judgment</em> is the agent&rsquo;s. Watch one promotion enter and the conflict resolve:
+      the floor blocks an over-capacity plan, the agent assembles cross-domain facts, and a
+      decision is surfaced with <strong>no ranking baked in</strong>.
+    </p>
+  </div>
+
+  <div class="run">
+    <ol class="timeline" id="timeline"></ol>
+
+    <div class="decision" id="decision">
+      <div class="dec-head">
+        <span class="dec-eyebrow">the decision surface</span>
+        <h3 class="dec-title">Four levers. <em>The ontology ranks none of them.</em></h3>
+        <p class="dec-sub">Each option is structurally <em>viable</em>; which one to pull is grounded judgment, weighed against the facts the agent just read.</p>
+      </div>
+      <div class="dec-options" id="decOptions"></div>
+      <div class="dec-context">
+        <div class="dc-head">facts on the table <span class="dc-sub">— read, not assumed</span></div>
+        <div class="dc-grid" id="decContext"></div>
+      </div>
+      <div class="dec-outcome" id="decOutcome"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────── close ───────────────────────── -->
+<section id="close" class="section wrap">
+  <div class="close-grid">
+    <div class="close-thesis">
+      <div class="sec-eyebrow">the argument</div>
+      <h2 class="sec-title">Facts in. <em>Judgment out.</em> Code that doesn&rsquo;t grow per&nbsp;role.</h2>
+      <p class="sec-sub">
+        The ontology holds what is true, legal and possible &mdash; never the choice. The agent&rsquo;s
+        identity, the routes, the constraints all render from it. Adding a role costs no new code.
+        That&rsquo;s the difference between an agent that <em>looks</em> grounded and one that <em>is</em>.
+      </p>
+    </div>
+    <ul class="tenets" id="tenets"></ul>
+  </div>
+  <footer class="colophon wrap">
+    <span>WHIPLASH</span>
+    <span class="col-mid" id="colMid">—</span>
+    <span>ontology &times; generic agent &times; deterministic backbone</span>
+  </footer>
+</section>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
