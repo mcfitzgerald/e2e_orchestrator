@@ -14,7 +14,6 @@
 
 <header class="top">
   <div class="brand">
-    <span class="brand-glyph">⟲</span>
     <span class="brand-word">WHIPLASH</span>
     <span class="brand-sub">run replay</span>
   </div>
@@ -36,6 +35,7 @@
   </div>
 
   <div class="card" id="card">
+    <div class="mode-badge" id="modeBadge"></div>
     <div class="card-flow" id="cardFlow">
       <span class="cf-from" id="cfFrom">—</span>
       <span class="cf-arrow" id="cfArrow">→</span>
@@ -43,6 +43,13 @@
     </div>
     <h1 class="card-title" id="cardTitle">Press play</h1>
     <p class="card-body" id="cardBody">Step through one promotion as it ripples across the supply chain and the agent resolves the conflict.</p>
+
+    <!-- the agent's grounded reasoning (shown only when an agent is acting) -->
+    <div class="reasoning" id="reasoning" hidden>
+      <span class="reasoning-who" id="reasoningWho">—</span>
+      <p class="reasoning-text" id="reasoningText"></p>
+    </div>
+
     <div class="card-meta" id="cardMeta"></div>
 
     <!-- decision surface (shown only on the decision step) -->

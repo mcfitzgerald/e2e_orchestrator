@@ -1,25 +1,30 @@
 # WHIPLASH — run replay (demo UI)
 
-A focused, self-contained **replay** of the most complex scenario (`full-demo` —
-the full promo-whiplash run). Press play and watch one promotion ripple across the
-supply chain and the agent resolve the conflict, one clear step at a time.
+A focused, self-contained **replay of a real `--mode llm` run** (`capacity-resolution`
+on gemini-3.5-flash). Press play and watch the agent resolve a capacity conflict one
+step at a time — **with its actual reasoning shown**, not a stub.
 
-The 56-event log is curated into **11 narrative steps**:
+Why a real run (and why it starts at the conflict): stub mode is scripted and emits
+no reasoning, so it can't show "what the agent is thinking." And live `full-demo`
+can't be used — a grounded agent sizes the supply request to fit and *dodges* the
+conflict (the documented Phase-5 finding). So the conflict is injected, the run is
+real, and the replay opens with the deterministic floor handing the conflict to the
+agent (one framing line covers the promo origin).
 
-1. a 3× promo enters → `demand_planning`
-2. handoff → `supply_planning` (the supply request)
-3. **the capacity floor blocks** the over-capacity plan → auto-reroute
-4. escalate the capacity conflict
-5–7. context assembly — three cross-domain queries (OTIF $7,200 · promo still
-   negotiable · co-man gated out)
-8. **the decision** — four structurally-viable levers the ontology ranks *none* of
-9. allocate a partial fill (the resolving move)
-10. **resolved** — `capacity_resolved` emitted
-11. re-converge the fulfillment plan
+The ~80-event trace is curated (in `export_demo_data.py`) into **10 steps**:
 
-Each step shows who's acting (the actor rail lights up), what's moving (the flow +
-quantum), and the grounded facts. The decision step shows the four levers with the
-chosen one marked.
+1. **deterministic backbone** — the capacity floor routes a `CapacityConflict` to supply planning
+2–3. **agent reasoning** — it reads co-man for both SKUs (flagship gated / secondary viable) and the line load
+4–6. **agent reasoning** — three context-assembly queries (promo negotiable · OTIF $7,200 · co-man gated for the flagship)
+7. **the decision** — four structurally-viable levers the ontology ranks *none* of
+8. **agent reasoning** — shift the secondary SKU's 1,500 units to a co-manufacturer, freeing the line for the flagship
+9. **resolved** — `capacity_resolved` committed
+10. re-converge the fulfillment plan
+
+Every **agent** step carries a teal *"agent reasoning"* badge, lights up the acting
+role in the rail, and shows the agent's **real words**. Every **deterministic
+backbone** step (routing, the floor, the event log) is marked *"no LLM in this
+step"* — the §2 split, made visible.
 
 ## Run it
 
@@ -40,16 +45,19 @@ scrubber ticks to jump · the `1×` button cycles speed. `?step=N` jumps to a st
 
 ## Regenerate the data
 
-`data.js` is baked from the real seams — a stub run of `full-demo` (the Scene 1→6
-event log). Re-bake after changing the scenario, ontology, or world fixture:
+`data.js` is baked from a captured **real `--mode llm` trace** (`runs/demo-capres.jsonl`
+by default). To replay a different real run, capture it and point the export at it:
 
 ```
-uv run python demo_ui/export_demo_data.py
+# capture a fresh real run (needs API key / Vertex config):
+E2E_MAX_LLM_CALLS=50 E2E_MAX_INVOCATIONS=25 \
+  uv run e2e-orchestrator --scenario capacity-resolution --mode llm --log runs/demo-capres.jsonl
+
+# bake it into data.js:
+uv run python demo_ui/export_demo_data.py [runs/your-trace.jsonl]
 ```
 
-Stub mode, no API key. (The export also bakes the 7-O `impact_analysis` closure and
-every role's rendered view — available in `window.DEMO_DATA.impact` for future use,
-not shown by the current replay.)
+The export itself needs no API key — it reads the captured trace.
 
 ## Files
 
@@ -57,13 +65,14 @@ not shown by the current replay.)
 |---|---|
 | `index.html` | structure |
 | `styles.css` | design system (Fraunces · Hanken Grotesk · IBM Plex Mono; editorial-dark) |
-| `app.js` | curates the event log into steps + drives the replay/transport |
-| `export_demo_data.py` | bakes the trace (+ 7-O impact) into `data.js` |
+| `app.js` | renders the pre-curated steps + drives the replay/transport |
+| `export_demo_data.py` | curates a real `--mode llm` trace into `data.js` steps |
 | `data.js` | auto-generated; do not hand-edit |
 
 ## Note
 
-The resolution shown (`allocate_partial_fill`) is the stub's deterministic path; the
-**live** agent's lever varies with the facts (see `briefings/phase-a3-live-report.md`).
-The replay says this out loud at the resolution step — the point is that the
-ontology ranks nothing.
+This run resolved via `shift_to_coman` — the agent's *real* grounded choice (move the
+secondary SKU to a co-man, freeing the line for the flagship promo). The lever varies
+with the facts across runs (see `briefings/phase-a3-live-report.md`); the replay says
+this out loud at the resolution step. The point is that the ontology ranks nothing —
+the judgment is the agent's.
