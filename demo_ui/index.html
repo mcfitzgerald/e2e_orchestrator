@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Whiplash — run replay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..600&family=Hanken+Grotesk:wght@300..700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="top">
+  <div class="brand">
+    <span class="brand-word">WHIPLASH</span>
+    <span class="brand-sub">run replay</span>
+  </div>
+  <div class="run-id">
+    <span class="ri-scenario" id="scenarioName">—</span>
+    <span class="ri-sep">·</span>
+    <span class="ri-line">a 3× promo collides with a line at 90% — watch it resolve, step by step</span>
+  </div>
+</header>
+
+<!-- the actors -->
+<section class="actors" id="actors" aria-label="roles in the run"></section>
+
+<!-- the single focus: the current step -->
+<main class="stage" id="stage">
+  <div class="stage-head">
+    <span class="scene-tag" id="sceneTag">—</span>
+    <span class="step-count" id="stepCount">—</span>
+  </div>
+
+  <div class="card" id="card">
+    <div class="mode-badge" id="modeBadge"></div>
+    <div class="card-flow" id="cardFlow">
+      <span class="cf-from" id="cfFrom">—</span>
+      <span class="cf-arrow" id="cfArrow">→</span>
+      <span class="cf-to" id="cfTo">—</span>
+    </div>
+    <h1 class="card-title" id="cardTitle">Press play</h1>
+    <p class="card-body" id="cardBody">Step through one promotion as it ripples across the supply chain and the agent resolves the conflict.</p>
+
+    <!-- the agent's FULL chain of thought (scrollable; only when an agent is acting) -->
+    <div class="cot" id="cot" hidden>
+      <div class="cot-head">
+        <span class="cot-who" id="cotWho">—</span>
+        <span class="cot-label">chain of thought — verbatim from the real trace</span>
+      </div>
+      <div class="cot-thread" id="cotThread"></div>
+    </div>
+
+    <div class="card-meta" id="cardMeta"></div>
+
+    <!-- decision surface (shown only on the decision step) -->
+    <div class="surface" id="surface" hidden>
+      <div class="surface-head">four structurally-viable levers — <em>the ontology ranks none of them</em></div>
+      <div class="surface-opts" id="surfaceOpts"></div>
+      <div class="surface-facts" id="surfaceFacts"></div>
+    </div>
+  </div>
+
+  <!-- the thesis this step proves — always visible, beneath the card -->
+  <div class="proof" id="proof" hidden>
+    <span class="proof-mark">⊢ proves</span>
+    <div class="proof-body">
+      <span class="proof-thesis" id="proofThesis"></span>
+      <span class="proof-note" id="proofNote"></span>
+    </div>
+  </div>
+</main>
+
+<!-- transport -->
+<footer class="transport">
+  <div class="t-controls">
+    <button class="tbtn" id="btnRestart" title="restart (⏮)">⏮</button>
+    <button class="tbtn" id="btnPrev" title="step back (←)">‹</button>
+    <button class="tbtn play" id="btnPlay" title="play / pause (space)">▶</button>
+    <button class="tbtn" id="btnNext" title="step forward (→)">›</button>
+  </div>
+  <div class="t-track" id="track" title="scrub"></div>
+  <div class="t-right">
+    <span class="t-pos"><span id="posNow">0</span><span class="t-slash">/</span><span id="posTotal">0</span></span>
+    <button class="tbtn speed" id="btnSpeed" title="speed">1×</button>
+  </div>
+</footer>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

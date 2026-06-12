@@ -7,6 +7,55 @@ date-stamped session entries, no tagged releases yet, everything under
 
 ## [Unreleased]
 
+### 2026-06-05 — Phase C: WHIPLASH demo console (the CSCO capstone, branch `phase-c-demo-ui`)
+
+A single-page, self-contained demo (`demo_ui/`) that answers the CSCO's two
+questions by SHOWING them on the real ontology + orchestrator, not slideware. No
+build, server, or API key — `data.js` is `window.DEMO_DATA`, opens over `file://`.
+
+- **The run, replayed.** A captured REAL `--mode llm` capacity-resolution run
+  (gemini-3.5-flash, 27 real `agent_reasoning` events) curated into ~10 narrative
+  steps: promo enters → handoff → the deterministic capacity floor BLOCKS an
+  over-capacity plan → escalate → cross-domain context queries → a DECISION
+  surface (four structurally-viable levers, `allocate_partial_fill` chosen) →
+  resolved → re-converge. The conflict is injected (a grounded live agent sizes to
+  fit and dodges it — the Phase-5 finding); one framing line covers the promo origin.
+- **Agent reasoning, verbatim.** Each agent step carries its full segment of the
+  real trace — every `agent_reasoning` event plus the reader-tool calls — behind a
+  scrollable chain-of-thought; a mode badge separates "agent reasoning · role"
+  from "deterministic backbone · no LLM".
+- **Thesis proofs woven in.** Each step shows an always-visible "⊢ proves" callout
+  tying the beat to a thesis claim (deterministic backbone, grounded agency,
+  grounded quantity, cross-domain grounding, §2 facts-in/judgment-out,
+  agency-varies-with-facts, commands→events, the-loop-closes).
+- Transport: play/pause/step/scrub + speed + keyboard (space/←/→/Home); `?step=N`
+  deep-links. Fraunces + Hanken Grotesk + IBM Plex Mono, editorial-dark.
+
+### 2026-06-05 — Phase A3: balanced + locked scenarios (agency-variation + `plant_scheduler` live)
+
+Closes the open Phase-A live item: the canonical conflict is determinate (only
+NJ-L1 makes the flagship, and it's maxed), so every live run correctly converged
+to `request_promo_revision`. Two balanced variants open a grounded second lever
+so the resolution can vary by seed and `plant_scheduler` fires — consuming the
+ontology's `world_state_balanced.yaml` (K1: CA-L1 as a grounded alternative
+toothpaste line, free residual 1900 ≥ 1500 shortfall).
+
+- **Generic world-fixture threading** (no per-scenario code): `_load_default_world_state(sv, path=None)`;
+  the orchestrator gains `world_state_path=` (a pre-built `world_state` still
+  wins); `build_scenario_orchestrator` passes `spec.get("world_state")`.
+  SchemaView + absent-fixture degradation stay in one place.
+- **`capacity-resolution-balanced`** — aligned responder; internal re-plan AND
+  promo revision both open → a real multi-lever choice live (may vary by seed;
+  internal re-plan exercises `plant_scheduler`). Stub keeps the canonical
+  `allocate_partial_fill` script (variation is a live-only property).
+- **`capacity-resolution-locked`** — adds `_CAPRES_CUSTOMER_DEV_LOCKED`
+  (contractually-locked / `can_shift=false` / `can_reduce=false`) → promo lever
+  closed → forces `re_request_production` → `plant_scheduler` (the agent abandons
+  its prior attractor on a fact). K2 is a responder, not a fixture flip.
+- **Live-verified** (5 runs): grounded agency + lever variation confirmed — the
+  agent reads CA-L1 but judges co-man-for-secondary inferior on cross-plant lead
+  (grounded judgment, not a gap). `tests/test_phase_a3_balanced.py` (+7); 100 green.
+
 ### 2026-06-04 — Residual-capacity model (Seed A2, Session 2: consumes the ontology contract)
 
 Consumes the ontology Session-1 reframe (`e2e_ontology` @ `5f1dd01`): NJ-L1 is no
@@ -34,6 +83,21 @@ Seed-A baseline stays **1500/wk** — a reframe, not a rescale.
   §2 clean (`committed_load` is a fact, `available` is arithmetic over facts — no
   policy/threshold/ranking). 93 orchestrator + 258 ontology tests green. `--mode
   stub`; no live LLM run.
+
+### 2026-06-04 — Phase A: consume the enriched ontology; T4 proven (zero-edit roles)
+
+Consumes ontology `c003539` (Phase-A enrichment: `plant_scheduler` + `trade`
+roles, the allocation lever, co-man gates). The hard T4 gate held: both new roles
+dispatch via `render_role_view` with **zero edits to the agent template or the
+seven tools** — the generic factory is unchanged.
+
+- **`query_coman_availability`** reader over the `co_manufacturers` fixture
+  (`ComanAvailability` collection binding in `world_state/loader.py`).
+- Scenarios reconciled to the Session-1 lever-owners; `_CAPRES_COMAN` to the new
+  `ComanAvailability` shape; `narrative.py` + Phase 5/6/7 DoD + `playbook_execution`
+  reconciled (+3 reader tests; 93 green).
+- `allocate_partial_fill` self-flow terminates cleanly (no re-entry loop);
+  `negotiate_promo_with_retailer` routes `trade` → `customer_development`.
 
 ### 2026-06-02 — Seed A: baseline-demand grounding (consumes the ontology contract)
 
