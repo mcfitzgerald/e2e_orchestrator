@@ -16,6 +16,8 @@ Code: [e2e_ontology] · [e2e_orchestrator]
 
 ---
 
+[mf: i feel like we need a visual, sketch, diagram something of the paragraph below, like what's the header image for the piece that encapsulates what we did]
+
 I built an ontology of a fictional consumer-goods supply chain — its entities,
 roles, flows, lifecycles, and invariants — and an orchestrator that spawns
 agents from it. When work reaches a role, the system renders that role's view
@@ -24,7 +26,7 @@ agent acts through a small set of generic tools and is discarded. There is no
 per-role code and no agent registry. The role is durable; the agent is
 ephemeral.
 
-I read two articles along the way that sharpened what this project is about.
+I encountered two articles along the way that sharpened what this project is about.
 The first, [Why AI Agents Fail to Deliver Supply Chain Results], argues that
 agents fail for want of operational context, and that the durable work is
 building the context layer. I agree with nearly all of it. The claim I reject
@@ -200,10 +202,10 @@ notes, fixed upstream in how the role view or playbook renders.
 
 `[EXHIBIT: failure→fix table, two families separated]`
 
-Mid-build I met the same problem from the other side: the pace of agentic
-development outran my own mental model of the system, and the fix was writing
-it down — changelogs and briefings until the picture came back. The ontology
-is to the agent what those documents were to me.
+> **Aside.** Mid-build I met the same problem from the other side: the pace
+> of agentic development outran my own mental model of the system, and the
+> fix was writing it down — changelogs and briefings until the picture came
+> back. The ontology is to the agent what those documents were to me.
 
 ## Where the agency lives
 
@@ -233,7 +235,7 @@ the arithmetic.
 `[EXHIBIT: run A vs run B — same conflict, different economics, different
 resolution]`
 
-The boundary: judgment is unconstrained, execution is gated. The agent's
+**The boundary**: judgment is unconstrained, execution is gated. The agent's
 decision surfaces to a human per the role's involvement policy.
 
 ## Role N+1
