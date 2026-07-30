@@ -225,11 +225,11 @@ is no branch condition because there is no field to hold one. The agent
 assembles the declared evidence — service exposure, promotion flexibility,
 co-manufacturer availability — weighs it, selects, and explains why.
 
-Two live runs hit the same conflict under different fixture economics (I
-authored every number; the behavior is what emerged). One faced a $1,275
-co-manufacturing premium against a $7,200 service penalty and shifted volume
-to the co-manufacturer. The other faced a $36,975 premium and went back to
-renegotiate the promotion. No rule made the choice; the reasoning traces show
+Two live runs hit the same conflict carrying different economics — I authored
+the unit prices and penalties; the order sizes, the dollar totals, and the
+behavior emerged in the runs. One faced a $1,275 co-manufacturing premium
+against a $7,200 service penalty and shifted volume to the co-manufacturer.
+The other faced a $36,975 premium and went back to renegotiate the promotion. No rule made the choice; the reasoning traces show
 the arithmetic.
 
 `[EXHIBIT: run A vs run B — same conflict, different economics, different
@@ -240,9 +240,9 @@ decision surfaces to a human per the role's involvement policy.
 
 ## Role N+1
 
-Late in the build I added two roles to a system that had been running one,
-with zero edits to the agent template and zero edits to the toolkit. Adding a
-role is an authoring task, not an engineering task.
+Late in the build I added two roles to a running system with zero edits to
+the agent template and zero edits to the toolkit. Adding a role is an
+authoring task, not an engineering task.
 
 That is the basis for inverting the first article's claim. In an architecture
 of one agent per use case, with context wired into each deployment, "the
@@ -259,8 +259,9 @@ traces. Maintenance is a pull request, not a governance committee.
 
 ## Limits
 
-Every number above is a fixture I authored; the divergent behavior is
-emergent, the dollars are not. One scenario, not many. World state loads as a
+The world above is constructed: every price, penalty, and capacity is a
+fixture I authored, and the dollar totals are the agents' arithmetic over
+them. One scenario, not many. World state loads as a
 snapshot at startup; deriving it from the event log is designed, not built.
 The live runs used a small, fast model. And the system stops at the decision —
 the agent does not transact against an ERP. Agents can only transact if
@@ -320,11 +321,19 @@ Supply Chain Results] · [Maybe Intelligence Ain't All That].*
   Oliveira SCB article, Sosin tweet.
 - **Punch-list addition (his):** repos need clear instructions and
   reproducibility before the Code links go live.
-- **Fact-check flags before publish:** run economics vs `runs/phase6-live` +
-  Phase 6 report; 45,000 story vs Seed A briefing; role-count wording ("added
-  two roles… running one") vs Phase A changelog; "small, fast model" vs the
-  2026-05-31 model-naming correction; `allocate_partial_fill` vs
-  `shift_to_coman` demo contradiction resolved before any WHIPLASH link.
+- **Fact-check pass (done 2026-07-30, vs Phase 6 report / Seed A briefing /
+  Phase A changelog):** dollar figures, resolutions, 45,000 story, "small,
+  fast model" all check out; role-count wording and "I authored every number"
+  corrected (the $36,975 is agent arithmetic — 43,500-unit shortfall × an
+  authored $0.85/unit rate — not a fixture). **Open editorial call:** run B's
+  economics descend from the ungrounded 45,000-unit request itself (same run,
+  pre-Seed-A) — decide whether Limits discloses that the two-runs exhibit and
+  the 45k failure story share a run, or whether the exhibit swaps to a
+  post-grounding trace. Also: the two runs weighed *three* options (the
+  fourth, partial fill, was added in Phase A) — exhibit caption should bridge.
+  Remaining repo item: `allocate_partial_fill` vs `shift_to_coman`
+  contradiction between the Phase C changelog entry and `demo_ui/data.js`
+  resolved before any WHIPLASH link.
 - **X thread:** cut after this draft settles — candidate spine:
   spawn-question → declared-world/one-rule → who-picks-the-branch →
   two-runs card → 45k → ladder → close.
