@@ -203,14 +203,9 @@ dispatch. The full render runs ~42,000 characters: identity, incoming and
 outgoing flows with their payload schemas, invariants, playbooks, and reader
 tools. No part of it is hand-written per role.
 
-**⚠ Honesty note for the draft:** the piece says "the same role view
-rendered twice — agent instruction and onboarding doc." Today
-`as_agent_prompt()` and `as_markdown()` return the *same text* (both open
-with the agent orientation). The "onboarding document" is a claim about the
-content, not a second render path that exists. Either (a) soften the exhibit
-to one render and keep the piece's "could serve as" phrasing — which is
-already accurate — or (b) add a human-facing render variant upstream first.
-Recommend (a); no upstream work needed.
+**Resolved (Michael, 2026-07-31):** one render is fine. The exhibit shows
+the single render; the piece's "could serve as a new hire's onboarding
+document" phrasing stays — it is a claim about the content, and accurate.
 
 ---
 
@@ -241,14 +236,36 @@ which is exactly why grounding was the fix. At the time of these runs the
 playbook offered three resolutions; the fourth (partial fill) was authored
 in later.
 
-**⚠ Open items:** (1) The raw traces (`phase6-live-capres-A.jsonl`,
-`phase6-live-fulldemo.jsonl`) were never committed — `*.jsonl` is
-gitignored — and no longer exist on disk. The card above cites the
-contemporaneous report; if we want verbatim reasoning quotes for this
-exhibit, we need a fresh live run (needs Michael's sign-off + API key) or
-we accept the documented numbers. (2) Whether the caption's disclosure
-sentence (run B = the 45k run) stays here or moves into the piece's Limits
-section is Michael's call — one of the two should carry it.
+**⚠ Open item:** whether the caption's disclosure sentence (run B = the 45k
+run) stays here or moves into the piece's Limits section is Michael's call —
+one of the two should carry it.
+
+### 2026-07-31 re-run: both behaviors reproduce on the current system
+
+The Phase 6 raw traces were never committed (`*.jsonl` was gitignored) and
+are gone; the card above cites the contemporaneous report. On Michael's
+sign-off, two fresh live runs (gemini-3.5-flash, post-Seed-A world) were
+captured and **committed** at `runs/captures/piece1-live-capres-20260731.jsonl`
+and `runs/captures/piece1-live-fulldemo-20260731.jsonl`:
+
+- **Grounding closed the 45k gap.** The full-demo `demand_planning` agent
+  called `query_baseline_demand` (read: 1,500 units/week), sized the promo
+  request at **9,000 units** — a multiplied *read* number — vs the historical
+  ungrounded 45,000.
+- **Divergence reproduces.** The two runs again chose different resolutions:
+  `shift_to_coman` (injected-conflict run) vs `request_promo_revision`
+  (full-demo run, where the co-man's 1,000-unit open window could not cover
+  a 7,500-unit shortfall, and the still-negotiable promo was the open lever).
+- Verbatim reasoning is now quotable from committed traces, e.g. the
+  resolver *predicting the floor* before firing: *"Attempting to request
+  this production will trigger the `line_capacity_not_exceeded` blocking
+  axiom, which will automatically route to the capacity conflict escalation
+  flow."* And a live family-1 catch: the lifecycle tracker rejected an
+  illegal `commit` transition (`no transition for trigger 'commit' from
+  state 'proposed'`) and the agent corrected to `sop_align`.
+- Option for the piece: the run A/B card could cite these 2026-07-31 runs
+  (committed, reproducible, grounded numbers) instead of the historical
+  pair, keeping the 45,000 story as the historical failure it fixed.
 
 A verbatim reasoning excerpt DOES exist from a third captured live run (the
 demo console, `demo_ui/data.js` — 27 real `agent_reasoning` events,

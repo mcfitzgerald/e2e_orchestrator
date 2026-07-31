@@ -132,8 +132,8 @@ document — one function, two consumers. And one hard rule rides on it: the
 render path is the *only* source of agent identity. No hand-authored prompts
 on the side.
 
-`[EXHIBIT: the same role view rendered twice — agent instruction and
-onboarding doc]`
+`[EXHIBIT: the rendered role view — the agent's entire identity, generated
+at dispatch]`
 
 ### The deterministic machine
 
