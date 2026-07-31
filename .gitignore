@@ -10,5 +10,7 @@ dist/
 build/
 *.jsonl
 !tests/**/*.jsonl
+# Archived live-run captures are tracked; scratch runs stay ignored.
+!runs/captures/*.jsonl
 .env
 .DS_Store
