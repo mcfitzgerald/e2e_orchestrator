@@ -170,7 +170,44 @@ This kills the current awkwardness where fixtures and events can disagree,
 and it makes the event log the single source of truth in fact, not just in
 principle.
 
-## 6. Repo layout (proposal)
+## 6. Boundaries and integration points (added 2026-08-01, Michael's requirement)
+
+The system must mock its integration points and boundaries *convincingly* —
+the original build proved the inbound seam; the rebuild completes the
+outbound one.
+
+**Principle: an integration point is a flow that crosses a boundary role.**
+The ontology declares parties (`is_boundary` roles) and the flows that
+reach them; it never declares systems. At boot the machine binds every
+boundary-crossing flow to an **adapter** — the same declared-contract
+pattern as invariant `check` and tool `implementation`. Mock adapters ship
+with the repo; a real EDI/ERP/TMS connector substitutes later with zero
+ontology change.
+
+**Convincing means:**
+
+- Real message vocabulary: POs arrive inbound; allocation notices and
+  shortage notifications go out to retailers; freight quote requests and
+  booking confirmations pass to/from the carrier; a pull-forward
+  confirmation comes back from the plant's scheduling surface.
+- **Asynchronous by construction**: outbound command → adapter → a
+  confirmation/response *event* lands in the log (via the signals
+  primitive, with configurable latency). Commands→events extends across
+  the boundary; the current build's "stops at the decision" limit is
+  removed — the loop closes through the mocked surface.
+- Scriptable per scenario: deterministic responses in stub mode,
+  parameterized behavior for live seeds (the old boundary-responder
+  pattern, kept).
+
+**Scenario's concrete integration points:** retail customers (POs in,
+allocation/shortage notices out), carrier (quote query, booking handoff),
+plant scheduling (pull-forward confirmation).
+
+This demonstrates rather than disclaims the systems-integration thesis
+(agents can only transact if connected): the demo shows what "connected"
+looks like, with the connector honestly mocked.
+
+## 7. Repo layout (proposal)
 
 ```
 <repo>/
@@ -183,14 +220,13 @@ principle.
   reader/              the one authoritative reader: query + render
   machine/             router, validation stack, lifecycle tracker,
                        agent factory, toolkit, durability seam
+    adapters/          boundary adapters: mock retailer/carrier/plant
+                       surfaces bound to boundary-crossing flows at boot
   scenarios/           genesis-event seeds + scripted (stub) agent scripts
   traces/              committed captures (never gitignored — learned that)
   tests/               structural DoD + divergence + graph-cast tests
   docs/                design docs, the piece's exhibits manifest
 ```
-
-Naming the repo: decide with Michael (candidates to brainstorm; not
-blocking the doc).
 
 **Navigability is a first-class requirement (north star #2):** the README
 walks the reader in narrative order — world → reader → machine → a trace —
@@ -199,7 +235,7 @@ there (the constraints: no policy fields, no LLM in routing, no per-role
 code). The current CLAUDE.md discipline rules carry over as the new repo's
 CONTRIBUTING.
 
-## 7. Definition of done (rebuild phase 1)
+## 8. Definition of done (rebuild phase 1)
 
 1. **Runs**: fresh clone → one command → full stub scenario end-to-end;
    live mode with `.env` per `.env.example`.
@@ -221,8 +257,13 @@ CONTRIBUTING.
    architecture back.
 8. Traces committed; scrub check (fictional names, no credentials) in CI or
    a pre-commit check.
+9. **The loop closes through the boundary**: the allocation decision
+   produces outbound transactions against mock adapters (allocation
+   notices, a freight booking if the expedite lever fires) and their
+   asynchronous confirmations land in the event log — visible in the
+   trace.
 
-## 8. Phasing
+## 9. Phasing
 
 1. Ratify this doc (scenario, vocabulary, layout, DoD).
 2. Meta-model + vocabulary final → `ontology/meta.yaml`.
@@ -230,14 +271,14 @@ CONTRIBUTING.
 4. Reader (query + render — design the render for holdability this time:
    the hub role's view should be *structured for reading*, not a 42k dump).
 5. Machine port (router, validators, tracker, factory, toolkit, durability)
-   + stub scenario green.
+   + boundary adapters + stub scenario green.
 6. World-state history (event-derived views) + replay.
 7. Live runs → divergence test → six-pattern review → commit traces.
 8. MCP front door + demo surface (phase 2).
 9. Re-anchor Piece 1: regenerate exhibits from the new repo, update draft,
    publish.
 
-## 9. Decisions (ratified by Michael, 2026-08-01)
+## 10. Decisions (ratified by Michael, 2026-08-01)
 
 1. **Repo name: `ontagent`.**
 2. **Fictional retailer names, real published rates** (Megalomart carries a
@@ -258,7 +299,7 @@ CONTRIBUTING.
    supervisor; our claim is the opposite, and "the orchestrator contains
    no model calls" is the sharpest sentence in the architecture.
 
-## 10. Build rules for ontagent's CLAUDE.md (Michael's standing notes)
+## 11. Build rules for ontagent's CLAUDE.md (Michael's standing notes)
 
 - **Always use context7 for library/API docs** — verify current LinkML
   practice before authoring the meta-model (the spec may have moved in ways
