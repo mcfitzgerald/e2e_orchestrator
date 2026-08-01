@@ -261,7 +261,10 @@ traces. Maintenance is a pull request, not a governance committee.
 
 The world above is constructed: every price, penalty, and capacity is a
 fixture I authored, and the dollar totals are the agents' arithmetic over
-them. One scenario, not many. World state loads as a
+them. A disclosure: the run that renegotiated the promotion is the same run
+that produced the 45,000-unit request — its dollar figures descend from the
+ungrounded baseline, sound arithmetic over a world that was not yet
+readable. One scenario, not many. World state loads as a
 snapshot at startup; deriving it from the event log is designed, not built.
 The live runs used a small, fast model. And the system stops at the decision —
 the agent does not transact against an ERP. Agents can only transact if
