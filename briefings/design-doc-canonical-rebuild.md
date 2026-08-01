@@ -237,13 +237,40 @@ CONTRIBUTING.
 9. Re-anchor Piece 1: regenerate exhibits from the new repo, update draft,
    publish.
 
-## 9. Open questions (for Michael)
+## 9. Decisions (ratified by Michael, 2026-08-01)
 
-1. Repo name.
-2. Public retailer regimes: fictional names with real published rates
-   (recommended), or fully fictional rates?
-3. One SKU or two? (Two makes the allocation split richer; one is smaller.
-   Lean: start with one, add the second only if divergence needs it.)
-4. Does the old pair of repos get archived with a pointer, or stay live as
-   "the extended build history"?
-5. `orchestrator` as a name: keep, or rename (machine / runtime / backbone)?
+1. **Repo name: `ontagent`.**
+2. **Fictional retailer names, real published rates** (Megalomart carries a
+   Walmart-shaped 3%-of-COGS OTIF regime, etc.).
+3. **One SKU.** The judgment lives across retailers, not across SKUs; one
+   SKU against three POs with asymmetric penalty regimes carries the full
+   decision space. Design note: the pull-forward lever needs an authored
+   constraint on the earlier window (scheduled line hours or upstream
+   material) since no second SKU occupies the line. The second SKU is the
+   pre-planned relief valve if the divergence test fails — not a day-one
+   element.
+4. **Old repos are reference-only during the build.** `ontagent` is fresh
+   and self-contained: no links to, and no dependency on, `e2e_ontology` /
+   `e2e_orchestrator`. The piece's Code links will point at `ontagent`
+   only.
+5. **"Orchestrator" stays.** The word is contested territory worth
+   holding: in current discourse "agent orchestration" implies an LLM
+   supervisor; our claim is the opposite, and "the orchestrator contains
+   no model calls" is the sharpest sentence in the architecture.
+
+## 10. Build rules for ontagent's CLAUDE.md (Michael's standing notes)
+
+- **Always use context7 for library/API docs** — verify current LinkML
+  practice before authoring the meta-model (the spec may have moved in ways
+  that help the graph cast), verify Google ADK usage before the agent
+  layer, and so on for every dependency. Training-data knowledge of fast-
+  moving libraries is presumed stale.
+- Old repos may be *read* for reference during the build; nothing is
+  imported from them and no code is copy-pasted without re-justification
+  against this design.
+- The constraint set carries over as law: no policy fields in the ontology,
+  no LLM in the routing path, no per-role code in the agent template or
+  toolkit, commands → events, idempotency keys everywhere, signals for
+  waits.
+- Traces are never gitignored (`traces/` is tracked); scrub check before
+  every capture commit.
