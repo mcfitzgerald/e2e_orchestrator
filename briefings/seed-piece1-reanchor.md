@@ -176,3 +176,117 @@ in `ontology/master_data.yaml`); scenario-selection research in
 source remains `briefings/phase-6-live-research-report.md` here in the
 old repo (cite as history — the disclosure paragraph in the draft
 already does this well and should survive nearly verbatim).
+
+---
+
+## Addendum — 2026-08-08: step 7 closed, phase 1 DoD fully met
+
+Everything above stands. This addendum captures what landed after the
+memo was written: the live evidence, four new ratified decisions
+(ontagent design §10.9–10.12), and lines worth stealing.
+
+### Exhibit 10 exists now — the divergence table (final numbers)
+
+| fixture | pre-lever gap | levers chosen | who bears the short | tokens |
+|---|---|---|---|---|
+| stub storyline | 4,760 | expedite | Bullseye 1,760 | — |
+| baseline | 4,760 | expedite + pull-forward | Megalomart 260 | 531k |
+| deep_gap | 9,140 | expedite + pull-forward | Megalomart 4,640 | 502k |
+| thin_margin | 380 | one overtime hour, no expedite | nobody | 322k |
+
+The narrative beat: **live judgment inverted the stub's storyline** —
+it protected the growth account (Bullseye) and the handshake account
+(Greenfield) and shorted the promoter, with the relationship
+arithmetic written down in the rationale. At thin_margin it declined a
+3,000-case expedite against a 380-case gap and bought one overtime
+hour instead. Same declared world every run; only genesis numbers
+varied. Traces: `traces/live_baseline.jsonl`, `live_deep_gap.jsonl`,
+`live_thin_margin.jsonl` (all replay-clean, six-pattern reviewed).
+
+### "Watching it fail" — the step-7 arc (four fixes, each in its lawful family)
+
+The committed failure captures make this section writable with primary
+sources. In order of occurrence:
+
+1. **The runaway** (`live_baseline_run1_pregrounding.jsonl`) — a seat
+   with zero reader tools hallucinated 68 tool names and forged
+   bare-name events with `{}` payloads that the machine accepted.
+   Fix family: grounding (reader tools) + a floor — **an event is a
+   typed fact** (§10.9): every emission validates against the event's
+   declared payload work unit. Never a prompt nudge.
+2. **Promoter-only demand** (`live_baseline_run2_promoter_only_demand.jsonl`)
+   — the seat grounded 12,960 instead of 17,760 because field
+   semantics lived in the world but the renderer dropped descriptions.
+   The proof point: a world-edit alone demonstrably failed (run 3
+   repeated the miss); the render fix landed it. **Declared meaning
+   must render** (§10.10).
+3. **The stalled cascade** (`live_deep_gap_run1_stalled_notices.jsonl`)
+   — "fires on event X" rendered as automation, so the seat waited for
+   a machine that was waiting for the seat. The declaration already
+   existed; the render now distinguishes machine-executed flows from
+   seat-due ones: "due when `allocation_committed` lands — this seat
+   writes and sends it." **A declared due is not automation** (§10.11).
+4. **The double expedite** (observed in baseline + deep_gap, not
+   floored at the time) — two seats booked the same shipment onto the
+   same expedited service twice. Fix: `booking_changes_service`, a
+   blocking invariant that is a *fact about what a booking is* (a
+   booking that changes nothing books nothing), never a judgment about
+   spend (§10.12).
+
+The meta-lesson for the piece: every failure was fixed by declaring
+more world, grounding more reads, or flooring the machine — the
+prompts never changed. That is the six-pattern discipline holding
+under fire.
+
+### New beat for "the deterministic machine" — emission rights
+
+Ratified §10.12 and built: `Event.emitted_by` — the ontology declares
+which seats or boundary parties may emit each event directly; an event
+with no `emitted_by` is machine-only, entering the log solely through
+declared causality (a flow's emits, an invariant's on_failure_emits, a
+playbook's always_fires). The orchestrator refuses an undeclared
+emission *before* payload validation, so a well-formed payload from
+the wrong seat is named as what it is: `emission_not_declared` — a
+forgery. The quotable line (now in the meta itself): **"Who may state
+a fact is itself a fact."**
+
+### The floor teaches in one run — candidate exhibit
+
+`traces/live_deep_gap_emission_floors.jsonl` (713,624 tokens), one
+trace, three beats:
+
+1. First booking passes — intermodal → team expedite, a real change
+   (invariant evaluated, passed, seq 120).
+2. Second attempt at the same service is BLOCKED — "booking
+   svc_team_expedite changes nothing" (handoff_blocked, seq 144). The
+   seat takes the rejection and concludes without forcing anything.
+3. Every later expedite request, transportation reads shipment status
+   *first*, sees the expedite already in flight, and concludes without
+   acting — receipt alone as a valid outcome, learned from the floor
+   inside a single run, not from prose.
+
+### Lines from the cold-reader test (outsider legibility, verified)
+
+Phase-1 DoD closed with a fresh session (no priors) following README →
+trace. It cited exact records correctly, and it surfaced three framings
+the repo's own prose never states — steal them:
+
+- **The human gate sits at the seat that judges the money, not the
+  seat that executes it.** (Transportation books the freight with no
+  gate; supply_planning's decision to spend was gated.)
+- **There is a third flow flavor** beyond machine-executed and
+  playbook-chosen: the declared due — the machine cannot author the
+  payload, so the event makes the flow *due from its seat*.
+- **Scope narrowing is real**: transportation's rendered world
+  contains no retailers and no penalty regimes — "it literally cannot
+  see whom the shortage hurts."
+
+### Corrections to the manifest above
+
+- Exhibit 8 graph numbers: now **86 nodes, 142 edges** (was 78/129 —
+  typed payloads, emission rights, and two reader tools added edges).
+- Test count for any prose that cites it: **82 structural tests**, now
+  running in CI on every push with the trace-scrub gate (fictional
+  retailers structurally checked, credential shapes forbidden).
+- Cost honesty if wanted: the whole live campaign was 8 runs,
+  ~$6–7 total, gemini-3.5-flash on Vertex.
