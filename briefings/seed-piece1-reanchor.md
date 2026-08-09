@@ -290,3 +290,101 @@ the repo's own prose never states — steal them:
   retailers structurally checked, credential shapes forbidden).
 - Cost honesty if wanted: the whole live campaign was 8 runs,
   ~$6–7 total, gemini-3.5-flash on Vertex.
+
+---
+
+## Addendum 2 — 2026-08-09: phase 2 closed, the front door exists
+
+Phasing step 8 landed (ontagent design §10.13, proposed and ratified
+the same session). Everything above still stands; this adds the
+inbound edge, which the memo predates. **The re-anchor is now
+unblocked on every dependency** — nothing else is pending in the repo.
+
+### Where it goes in the spine — fold, don't add
+
+Recommendation: **do not open a third new section.** The memo's new
+"The boundary" section is about the *outbound* edge (the loop closing
+through mocked adapters); the front door is the *inbound* edge of the
+same idea. Put it there as that section's second half. The unifying
+sentence the piece has been missing: *the ontology declares parties
+and flows, never systems — and both directions bind to that same
+declaration, one to an adapter, one to a protocol.* A separate "MCP"
+section would read as tooling news; folded in, it completes an
+argument.
+
+### The claim the front door actually earns
+
+Not "it speaks MCP" (everything speaks MCP now). The claim is **the
+edge added a caller, not a capability** — and it is proven as an
+equality, not asserted:
+
+- An MCP caller is a *declared boundary party* stating typed facts
+  through the same `emit_event` seam genesis uses. Flows are not
+  exposed: process consequence belongs to the machine, so there is no
+  "run this flow" verb to abuse.
+- The floors are the machine's own, unchanged and in their ratified
+  order: unknown event → **emission_not_declared** → **payload_invalid**
+  → blocking invariants on whatever the fact causes. The door adds
+  exactly one guard of its own: you may speak *for* a boundary party,
+  never *as* an internal seat — because seat identity exists only
+  through render-and-invocation.
+- A caller learns its own contract the way a seat does: by reading its
+  rendered role view, which already lists the events it may emit and
+  their payload shapes. **The render path is the only source of
+  identity at the boundary too** — that generalization is new here and
+  worth a sentence.
+
+### New exhibits (11–13)
+
+11. **The equality** — `tests/test_door_dod.py::
+    test_client_genesis_reproduces_the_seeded_run_byte_for_byte`. An
+    external client emitting the genesis facts over the protocol
+    produces a log **byte-for-byte identical** to the in-process
+    seeder's. Quote the assertion; it is the whole architectural claim
+    in one line, and it is the reason no live-over-MCP run was needed
+    (see the methodological note below).
+12. **The floors answering over the wire** — from
+    `traces/mcp_stub_demo.jsonl` (121 records, deterministic) or the
+    driver's output: a retailer stating the inventory count →
+    `emission_not_declared`; a purchase order with no body →
+    `payload_invalid` naming each missing field; speaking as an
+    internal seat → refused at the door. Three lies, three different
+    layers answering, each in the system's own vocabulary.
+13. **The boundary party reading its own contract** — the "Events you
+    may emit" section of `roleview://retail_customers`, exactly as an
+    external client receives it. Pairs with exhibit 3 (rendered
+    identity) to show one mechanism serving both an internal seat and
+    an outside caller.
+
+The 10-minute path is scripted and reproducible for anyone cloning:
+`uv run python -m scenarios.promo_allocation.demo_door`.
+
+### Methodological note worth stealing (for Limits or the close)
+
+No live run behind the door was made, **deliberately**, and the reason
+is itself the argument: because the client-driven genesis is provably
+byte-identical to the in-process genesis, a live seat behind the door
+receives exactly the invocation the committed live traces already
+captured — identical render, message, and assembled context. There is
+no mechanism by which the transport could influence the judgment, so
+the run would have measured sampling noise at ~500k tokens. *The
+committed live traces already are the system's behavior behind the
+door.* This is a small, honest example of proving something instead of
+demonstrating it — and of an equality test retiring an experiment.
+
+### Corrections to the corrections
+
+- **Test count: 96 structural tests** (was 82) — +11 front-door DoD,
+  +3 scrub coverage on the new capture. Still CI on every push, still
+  no API key needed for any of it.
+- Exhibit 8 graph numbers **unchanged at 86 nodes / 142 edges**: phase
+  2 touched no ontology. That is itself the point — a whole new
+  external interface, zero world change.
+- Layout for any prose describing the repo: two edge modules now,
+  `live/` (the model edge, the one place an LLM SDK is touched) and
+  `door/` (the MCP edge). `machine/` imports neither; grep tests
+  enforce both directions.
+- Honest limit to keep in Limits: the protocol is real, but the client
+  is ours — no third-party system has integrated against it. Same
+  posture as the mocked connectors: the shape is declared and
+  demonstrated, the integration is not claimed.
